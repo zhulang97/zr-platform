@@ -87,6 +87,7 @@ public class StatsServiceImpl implements StatsService {
         ));
         
         long totalPersons = statsMapper.countPersons(districtIds);
+        List<StatsMapper.KvRow> districts = statsMapper.personsByDistrict(districtIds);
         Map<String, Object> byDistrict = new java.util.LinkedHashMap<>();
         for (StatsMapper.KvRow district : districts) {
             double carPct = totalPersons > 0 ? district.getV() * 100.0 / totalPersons : 0;
@@ -138,6 +139,7 @@ public class StatsServiceImpl implements StatsService {
         
         Map<String, Object> overview = overview(req);
         Map<String, Object> distribution = disabilityDistribution(req);
+        long totalPersons = ((Number) overview.get("totalPersons")).longValue();
         
         StringWriter stringWriter = new StringWriter();
         try (PrintWriter writer = new PrintWriter(stringWriter)) {

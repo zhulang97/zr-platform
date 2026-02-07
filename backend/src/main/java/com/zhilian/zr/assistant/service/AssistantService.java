@@ -2,6 +2,7 @@ package com.zhilian.zr.assistant.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhilian.zr.assistant.dto.AssistantDsl;
+import com.zhilian.zr.common.api.PageResponse;
 import com.zhilian.zr.person.dto.PersonDtos;
 import com.zhilian.zr.person.service.PersonService;
 import com.zhilian.zr.security.CurrentUser;
@@ -9,6 +10,7 @@ import com.zhilian.zr.security.DataScopeService;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -106,11 +108,15 @@ public class AssistantService {
     var page = dsl.getPage() != null ? dsl.getPage() : new AssistantDsl.Page();
     dsl.setPage(page);
 
+    long userId = CurrentUser.userId();
+    List<Long> scope = dataScopeService.districtScopeOrNullForAdmin(userId, CurrentUser.authorities());
+    List<Long> districtIds = DataScopeService.intersectDistrictIds(filters.getDistrictIds(), scope);
+
     PersonDtos.PersonSearchRequest req = new PersonDtos.PersonSearchRequest(
         filters.getNameLike(),
         filters.getIdNo(),
         filters.getDisabilityCardNo(),
-        dataScopeService.intersectDistrictIds(filters.getDistrictIds(), CurrentUser.userId(), CurrentUser.authorities()),
+        districtIds,
         filters.getStreetIds(),
         filters.getDisabilityCategories(),
         filters.getDisabilityLevels(),
@@ -137,7 +143,7 @@ public class AssistantService {
     );
   }
 
-  private String generateExplanation(AssistantDsl.Filters filters, var result) {
+  private String generateExplanation(AssistantDsl.Filters filters, PageResponse<PersonDtos.PersonRow> result) {
     StringBuilder sb = new StringBuilder();
     sb.append("查询结果：共找到 ").append(result.total()).append(" 条记录。");
 

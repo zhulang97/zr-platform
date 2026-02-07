@@ -5,6 +5,7 @@ import com.zhilian.zr.ai.service.AiChatService;
 import com.zhilian.zr.ai.service.AnomalyCaseService;
 import com.zhilian.zr.ai.service.VectorSearchService;
 import com.zhilian.zr.common.api.ApiResponse;
+import com.zhilian.zr.security.CurrentUser;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -102,7 +103,7 @@ public class AiController {
     @PutMapping("/cases/{caseId}/resolve")
     @PreAuthorize("hasAuthority('ai:case:resolve')")
     public ApiResponse<Void> resolveCase(@PathVariable Long caseId, @RequestBody ResolveCaseRequest req) {
-        Long currentUserId = CurrentUser.getUserId();
+        Long currentUserId = CurrentUser.userId();
         anomalyCaseService.updateResolution(caseId, req.resolution(), currentUserId);
         return ApiResponse.ok(null);
     }

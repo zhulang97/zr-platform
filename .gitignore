@@ -1,0 +1,62 @@
+# Build directories
+target/
+dist/
+node_modules/
+.vscode/
+.idea/
+
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+*.h2.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Gradle
+.gradle/
+gradlew
+gradlew.bat
+
+# Package files
+*.zip
+*.tar
+*.gz
+*.7z
+
+# IDE settings
+.settings/
+.project
+.classpath
+
+# Build output
+build/
+out/
