@@ -1,0 +1,56 @@
+import { defineStore } from 'pinia'
+import { http } from '../api/http'
+
+type MenuNode = {
+  permCode: string
+  name: string
+  path: string | null
+  sort: number
+  children: MenuNode[]
+}
+
+type MeResponse = {
+  userId: number
+  username: string
+  displayName: string
+  permissions: string[]
+  menus: MenuNode[]
+  districtScope: number[] | null
+}
+
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    accessToken: '' as string,
+    loaded: false,
+    me: null as MeResponse | null
+  }),
+  actions: {
+    async login(username: string, password: string) {
+      const resp = await http.post('/api/auth/login', { username, password })
+      this.accessToken = resp.data.data.accessToken
+      this.loaded = false
+      await this.loadMe()
+    },
+    async refresh() {
+      const resp = await http.post('/api/auth/refresh')
+      this.accessToken = resp.data.data.accessToken
+    },
+    async loadMe() {
+      const resp = await http.get('/api/auth/me')
+      this.me = resp.data.data
+      this.loaded = true
+    },
+    async logout() {
+      await http.post('/api/auth/logout')
+      this.clear()
+    },
+    clear() {
+      this.accessToken = ''
+      this.loaded = false
+      this.me = null
+    },
+    hasPerm(code: string) {
+      return !!this.me?.permissions?.includes(code)
+    }
+  }
+})
