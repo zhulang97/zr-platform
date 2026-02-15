@@ -148,10 +148,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted, onUnmounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { http } from '../api/http'
 import dayjs from 'dayjs'
+import { useFilterStore } from '../stores/filters'
+import { emitter } from '../utils/eventBus'
+import { storeToRefs } from 'pinia'
+
+const filterStore = useFilterStore()
+const { anomalyFilters } = storeToRefs(filterStore)
 
 interface AnomalyRow {
   anomalyId: number
@@ -188,10 +194,42 @@ const filters = reactive({
   pageSize: 20
 })
 
+// 监听 Pinia store 的变化
+watch(anomalyFilters, (newFilters) => {
+  filters.nameLike = newFilters.nameLike || ''
+  filters.idNo = newFilters.idNo || ''
+  filters.disabilityCardNo = newFilters.disabilityCardNo || ''
+  filters.anomalyType = newFilters.anomalyType || ''
+  filters.status = newFilters.status || ''
+  filters.pageNo = newFilters.pageNo || 1
+  load()
+}, { deep: true })
+
+// 监听刷新事件
+const handleRefresh = () => {
+  filters.nameLike = anomalyFilters.value.nameLike || ''
+  filters.idNo = anomalyFilters.value.idNo || ''
+  filters.disabilityCardNo = anomalyFilters.value.disabilityCardNo || ''
+  filters.anomalyType = anomalyFilters.value.anomalyType || ''
+  filters.status = anomalyFilters.value.status || ''
+  filters.pageNo = anomalyFilters.value.pageNo || 1
+  load()
+}
+
+onMounted(() => {
+  emitter.on('refresh:anomaly', handleRefresh)
+})
+
+onUnmounted(() => {
+  emitter.off('refresh:anomaly', handleRefresh)
+})
+
 const handleForm = reactive({
   status: 'VERIFIED',
   note: ''
 })
+
+const rows = ref<AnomalyRow[]>([])
 
 const pagination = reactive({
   current: 1,
@@ -314,7 +352,7 @@ function handleReset() {
   filters.anomalyType = ''
   filters.status = ''
   filters.pageNo = 1
-  load()
+  filterStore.clearFilters('anomaly')
 }
 
 async function handleSearch() {

@@ -1,8 +1,12 @@
 package com.zhilian.zr.importing.entity;
 
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.Instant;
 
+@TableName("t_import_batch")
 public class ImportBatchEntity {
+    @TableId("batch_id")
     private Long batchId;
     private String importType;
     private String fileName;

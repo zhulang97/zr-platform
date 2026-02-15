@@ -1,6 +1,11 @@
 package com.zhilian.zr.importing.entity;
 
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+@TableName("t_import_row")
 public class ImportRowEntity {
+    @TableId("row_id")
     private Long rowId;
     private Long batchId;
     private Integer rowNo;

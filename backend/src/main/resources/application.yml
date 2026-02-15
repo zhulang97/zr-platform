@@ -21,25 +21,6 @@ zr:
       access-ttl-seconds: 1200
       refresh-ttl-seconds: 1209600
 
----
-spring:
-  config:
-    activate:
-      on-profile: dev
-  datasource:
-    url: jdbc:h2:mem:zr;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:db/h2/schema.sql
-      data-locations: classpath:db/h2/data.sql
-
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -48,31 +29,7 @@ ai:
   schedule:
     enabled: true
 
-spring:
-  ai:
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY:your-dashscope-api-key}
-      model: qwen-turbo
-      embedding-model: text-embedding-v2
-      dimensions: 1536
-
-milvus:
-  host: ${MILVUS_HOST:localhost}
-  port: ${MILVUS_PORT:19530}
-  token: ${MILVUS_TOKEN:}
-  database: zr_platform
-
----
-spring:
-  config:
-    activate:
-      on-profile: dm
-  datasource:
-    url: jdbc:dm://127.0.0.1:5236/ZR
-    username: ZR
-    password: ZR
-    driver-class-name: dm.jdbc.driver.DmDriver
-
-mybatis-plus:
-  configuration:
-    map-underscore-to-camel-case: true
+# 高德地图配置
+amap:
+  key: ${AMAP_KEY:a0e376b4b78219135989c322f81b9ef8}
+  securityConfig: ${AMAP_SECURITY_CONFIG:c9cdb1e7314ce353f3573610415fea0b}

@@ -1,0 +1,68 @@
+############## 达梦数据库配置 ##############
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:dm://220.196.89.35:3000/ZY_PLATFORM?serverTimezone=GMT%2B8&&characterEncoding=utf8&useSSL=false
+    username: ZY_PLATFORM
+    password: ZY_PLATFORM@16_justai1033!
+    druid:
+      initial-size: 2
+      min-idle: 2
+      max-active: 5
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1 FROM DUAL
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      filters: stat,slf4j
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+
+  ai:
+    dashscope:
+      api-key: sk-ffe8edfe3d7e46f09d538a7a8a9e1913
+      model: Qwen3-Max
+      embedding-model: text-embedding-v4
+      dimensions: 1536
+  data:
+    redis:
+      host: 220.196.89.35
+      port: 3005
+      password: redis_19_justai1033
+      database: 1
+      timeout: 10s
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+############## 日志配置 ##############
+logging:
+  level:
+    com.zy.abletogetherai.mapper: debug
+    cn.dev33.satoken: debug
+
+milvus:
+  enabled: false
+  host: 220.196.89.35
+  port: 5243
+  database: zy_platform
+
+# 阿里云OSS配置
+aliyun:
+  oss:
+    endpoint: http://oss-cn-shanghai-zpint-d01-a.ops-zpint.lt.cloud.sh.cegn.cn/
+    access-key-id: F8O6R71RTyoc3myw
+    access-key-secret: tpRDicxg0Fw4stHGzRwHB8oXuCBJ0t
+    bucket-name: oss-cu-xc-cnq-kj-ywtg-ai-01
+    policy-expiration: 3600
+
+external:
+  call:
+    # 外部外呼接口URL https://api.q.52store.com/api/app/reportCall
+    url: http://220.196.89.32:4110

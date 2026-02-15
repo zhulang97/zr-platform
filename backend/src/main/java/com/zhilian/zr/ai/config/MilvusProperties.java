@@ -2,12 +2,14 @@ package com.zhilian.zr.ai.config;
 
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.param.ConnectParam;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @ConfigurationProperties(prefix = "milvus")
+@ConditionalOnProperty(name = "milvus.enabled", havingValue = "true", matchIfMissing = false)
 public class MilvusProperties {
     private String host = "localhost";
     private Integer port = 19530;
@@ -47,12 +49,12 @@ public class MilvusProperties {
     }
 
     @Bean
-    public MilvusServiceClient milvusClient(MilvusProperties properties) {
+    public MilvusServiceClient milvusClient() {
         ConnectParam connectParam = ConnectParam.newBuilder()
-            .withHost(properties.getHost())
-            .withPort(properties.getPort())
-            .withToken(properties.getToken())
-            .withDatabaseName(properties.getDatabase())
+            .withHost(this.getHost())
+            .withPort(this.getPort())
+            .withToken(this.getToken())
+            .withDatabaseName(this.getDatabase())
             .build();
         return new MilvusServiceClient(connectParam);
     }

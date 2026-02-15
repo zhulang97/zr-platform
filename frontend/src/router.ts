@@ -11,6 +11,8 @@ const Stats = () => import('./views/Stats.vue')
 const Importing = () => import('./views/Importing.vue')
 const Sys = () => import('./views/Sys.vue')
 const AIChat = () => import('./views/AIChat.vue')
+const PolicySearch = () => import('./views/PolicySearch.vue')
+const Dashboard = () => import('./views/Dashboard.vue')
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -21,12 +23,13 @@ export const router = createRouter({
       component: Shell,
       children: [
         { path: '', redirect: '/home' },
-        { path: 'home', component: Query, meta: { perm: 'menu:home:view' } },
+        { path: 'home', component: Dashboard, meta: { perm: 'menu:home:view' } },
         { path: 'person/:id?', component: Person, meta: { perm: 'menu:person:view' } },
         { path: 'anomaly', component: Anomaly, meta: { perm: 'menu:anomaly:view' } },
         { path: 'stats', component: Stats, meta: { perm: 'menu:stats:view' } },
         { path: 'import', component: Importing, meta: { perm: 'menu:import:view' } },
         { path: 'ai', component: AIChat, meta: { perm: 'menu:ai:view' } },
+        { path: 'policy', component: PolicySearch, meta: { perm: 'menu:policy:view' } },
         { path: 'sys/:tab?', component: Sys, meta: { perm: 'menu:sys:view' } }
       ]
     }

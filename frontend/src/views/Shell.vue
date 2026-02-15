@@ -8,6 +8,7 @@
         <a-menu-item key="/home">统一查询</a-menu-item>
         <a-menu-item key="/person">一人一档</a-menu-item>
         <a-menu-item key="/anomaly" v-perm="'menu:anomaly:view'">异常管理</a-menu-item>
+        <a-menu-item key="/policy" v-perm="'menu:policy:view'">政策找人</a-menu-item>
         <a-menu-item key="/stats" v-perm="'menu:stats:view'">统计看板</a-menu-item>
         <a-menu-item key="/import" v-perm="'menu:import:view'">导入治理</a-menu-item>
         <a-menu-item key="/sys" v-perm="'menu:sys:view'">系统管理</a-menu-item>

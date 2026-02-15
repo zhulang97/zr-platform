@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class JwtAuthFilter extends OncePerRequestFilter {
   private final JwtTokenService jwtTokenService;
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtAuthFilter.class);
 
   public JwtAuthFilter(JwtTokenService jwtTokenService) {
     this.jwtTokenService = jwtTokenService;
@@ -45,7 +46,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         ZrPrincipal principal = new ZrPrincipal(Long.parseLong(sub), username);
         var authentication = new UsernamePasswordAuthenticationToken(principal, null, granted);
         SecurityContextHolder.getContext().setAuthentication(authentication);
-      } catch (Exception ignore) {
+        log.debug("Authenticated user: {}, authorities: {}", username, authorities);
+      } catch (Exception e) {
+        log.warn("JWT authentication failed: {}", e.getMessage());
         SecurityContextHolder.clearContext();
       }
     }

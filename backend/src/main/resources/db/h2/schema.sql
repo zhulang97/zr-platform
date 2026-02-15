@@ -107,6 +107,10 @@ create table if not exists t_person (
   district_id bigint,
   street_id bigint,
   address varchar(256),
+  longitude decimal(10, 7),
+  latitude decimal(10, 7),
+  location_accuracy varchar(20),
+  location_updated_at timestamp,
   created_at timestamp not null,
   updated_at timestamp not null
 );
@@ -186,3 +190,86 @@ create table if not exists t_anomaly_snapshot (
   snapshot_json clob,
   created_at timestamp not null
 );
+
+-- AI Integration Tables
+
+-- Person Vector Table (for semantic search)
+create table if not exists t_person_vector (
+  person_id bigint primary key,
+  vector clob,
+  updated_at timestamp not null,
+  foreign key (person_id) references t_person(person_id)
+);
+
+-- Anomaly Case Table
+create table if not exists t_anomaly_case (
+  case_id bigint primary key,
+  person_id bigint not null,
+  title varchar(256) not null,
+  description clob,
+  anomaly_type varchar(64),
+  severity int,
+  resolution clob,
+  handler_user_id bigint,
+  resolved_at timestamp,
+  created_at timestamp not null,
+  foreign key (person_id) references t_person(person_id),
+  foreign key (handler_user_id) references t_user(user_id)
+);
+
+-- Anomaly Case Vector Table (for semantic search)
+create table if not exists t_anomaly_case_vector (
+  case_id bigint primary key,
+  vector clob,
+  updated_at timestamp not null,
+  foreign key (case_id) references t_anomaly_case(case_id)
+);
+
+-- Policy Document Tables
+
+-- 政策文档主表
+create table if not exists t_policy_document (
+  policy_id bigint primary key,
+  user_id bigint not null,
+  title varchar(256) not null,
+  oss_url varchar(512) not null,
+  oss_key varchar(512) not null,
+  file_name varchar(256),
+  file_size bigint,
+  file_type varchar(32),
+  content_length int,
+  status varchar(16) default 'ACTIVE',
+  created_at timestamp not null,
+  updated_at timestamp not null,
+  foreign key (user_id) references t_user(user_id)
+);
+
+-- 政策分析版本表
+create table if not exists t_policy_analysis (
+  analysis_id bigint primary key,
+  policy_id bigint not null,
+  version int not null,
+  is_latest boolean default false,
+  conditions_json clob,
+  explanation varchar(2048),
+  analyzed_segments int,
+  total_segments int,
+  created_at timestamp not null,
+  foreign key (policy_id) references t_policy_document(policy_id)
+);
+
+-- 政策查询记录表
+create table if not exists t_policy_query_log (
+  log_id bigint primary key,
+  analysis_id bigint not null,
+  filters_json clob,
+  total_results int,
+  executed_at timestamp not null,
+  foreign key (analysis_id) references t_policy_analysis(analysis_id)
+);
+
+-- 索引
+create index if not exists ix_policy_user on t_policy_document(user_id);
+create index if not exists ix_policy_status on t_policy_document(status);
+create index if not exists ix_analysis_policy on t_policy_analysis(policy_id);
+create index if not exists ix_analysis_latest on t_policy_analysis(policy_id, is_latest);

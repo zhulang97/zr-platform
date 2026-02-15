@@ -1,12 +1,39 @@
 package com.zhilian.zr.assistant.dto;
 
 import java.util.List;
+import java.util.Map;
 
 public class AssistantDsl {
   private String intent;
+  private String action;
   private Filters filters;
   private List<Sort> sort;
   private Page page;
+  private Navigation navigation;
+  private TargetPage targetPage;
+
+  public static class Navigation {
+    private String path;
+    private Map<String, String> query;
+    private boolean newTab;
+
+    public String getPath() { return path; }
+    public void setPath(String path) { this.path = path; }
+    public Map<String, String> getQuery() { return query; }
+    public void setQuery(Map<String, String> query) { this.query = query; }
+    public boolean isNewTab() { return newTab; }
+    public void setNewTab(boolean newTab) { this.newTab = newTab; }
+  }
+
+  public static class TargetPage {
+    private String page;
+    private String tab;
+
+    public String getPage() { return page; }
+    public void setPage(String page) { this.page = page; }
+    public String getTab() { return tab; }
+    public void setTab(String tab) { this.tab = tab; }
+  }
 
   public static class Filters {
     private String nameLike;
@@ -22,6 +49,8 @@ public class AssistantDsl {
     private Boolean hasBlindCard;
     private List<String> cardStatus;
     private List<String> subsidyStatus;
+    private String anomalyType;
+    private String anomalyStatus;
 
     public String getNameLike() { return nameLike; }
     public void setNameLike(String nameLike) { this.nameLike = nameLike; }
@@ -49,6 +78,10 @@ public class AssistantDsl {
     public void setCardStatus(List<String> cardStatus) { this.cardStatus = cardStatus; }
     public List<String> getSubsidyStatus() { return subsidyStatus; }
     public void setSubsidyStatus(List<String> subsidyStatus) { this.subsidyStatus = subsidyStatus; }
+    public String getAnomalyType() { return anomalyType; }
+    public void setAnomalyType(String anomalyType) { this.anomalyType = anomalyType; }
+    public String getAnomalyStatus() { return anomalyStatus; }
+    public void setAnomalyStatus(String anomalyStatus) { this.anomalyStatus = anomalyStatus; }
   }
 
   public static class Sort {
@@ -73,10 +106,16 @@ public class AssistantDsl {
 
   public String getIntent() { return intent; }
   public void setIntent(String intent) { this.intent = intent; }
+  public String getAction() { return action; }
+  public void setAction(String action) { this.action = action; }
   public Filters getFilters() { return filters; }
   public void setFilters(Filters filters) { this.filters = filters; }
   public List<Sort> getSort() { return sort; }
   public void setSort(List<Sort> sort) { this.sort = sort; }
   public Page getPage() { return page; }
   public void setPage(Page page) { this.page = page; }
+  public Navigation getNavigation() { return navigation; }
+  public void setNavigation(Navigation navigation) { this.navigation = navigation; }
+  public TargetPage getTargetPage() { return targetPage; }
+  public void setTargetPage(TargetPage targetPage) { this.targetPage = targetPage; }
 }

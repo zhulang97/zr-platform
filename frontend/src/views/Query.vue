@@ -9,8 +9,12 @@
           <a-form-item label="身份证号(精确)">
             <a-input v-model:value="filters.idNo" />
           </a-form-item>
+          <a-form-item label="残疾人证号">
+            <a-input v-model:value="filters.disabilityCardNo" />
+          </a-form-item>
           <a-space>
             <a-button type="primary" @click="load">查询</a-button>
+            <a-button @click="handleReset">重置</a-button>
             <a-button v-perm="'person:export'" @click="exporting">导出</a-button>
           </a-space>
         </a-form>
@@ -22,6 +26,7 @@
           :pagination="false"
           rowKey="personId"
           :customRow="customRow"
+          :loading="loading"
         />
       </a-card>
     </div>
@@ -29,19 +34,27 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted, onUnmounted, watch } from 'vue'
 import { http } from '../api/http'
 import { message } from 'ant-design-vue'
 import { router } from '../router'
+import { useFilterStore } from '../stores/filters'
+import { emitter } from '../utils/eventBus'
+import { storeToRefs } from 'pinia'
+
+const filterStore = useFilterStore()
+const { queryFilters } = storeToRefs(filterStore)
 
 const filters = reactive({
   nameLike: '',
   idNo: '',
+  disabilityCardNo: '',
   pageNo: 1,
   pageSize: 20
 })
 
 const rows = ref<any[]>([])
+const loading = ref(false)
 
 const columns = [
   { title: '姓名', dataIndex: 'nameMasked' },
@@ -58,6 +71,34 @@ const columns = [
   { title: '异常', dataIndex: 'riskFlag' }
 ]
 
+// 监听 Pinia store 的变化
+watch(queryFilters, (newFilters) => {
+  filters.nameLike = newFilters.nameLike || ''
+  filters.idNo = newFilters.idNo || ''
+  filters.disabilityCardNo = newFilters.disabilityCardNo || ''
+  load()
+}, { deep: true, immediate: true })
+
+// 监听刷新事件
+const handleRefresh = () => {
+  // 从 store 同步最新的筛选器
+  filters.nameLike = queryFilters.value.nameLike || ''
+  filters.idNo = queryFilters.value.idNo || ''
+  filters.disabilityCardNo = queryFilters.value.disabilityCardNo || ''
+  load()
+}
+
+onMounted(() => {
+  emitter.on('refresh:query', handleRefresh)
+  emitter.on('refresh:home', handleRefresh)
+  load()
+})
+
+onUnmounted(() => {
+  emitter.off('refresh:query', handleRefresh)
+  emitter.off('refresh:home', handleRefresh)
+})
+
 function customRow(record: any) {
   return {
     style: 'cursor: pointer',
@@ -68,19 +109,37 @@ function customRow(record: any) {
 }
 
 async function load() {
-  const resp = await http.post('/api/persons/search', { ...filters })
-  rows.value = resp.data.data.items
+  loading.value = true
+  try {
+    const resp = await http.post('/api/persons/search', { ...filters })
+    rows.value = resp.data.data.items
+  } catch (error: any) {
+    message.error('加载数据失败：' + (error?.response?.data?.message || '请稍后重试'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleReset() {
+  filters.nameLike = ''
+  filters.idNo = ''
+  filters.disabilityCardNo = ''
+  filterStore.clearFilters('query')
 }
 
 async function exporting() {
-  const resp = await http.post('/api/persons/export', { ...filters }, { responseType: 'blob' })
-  const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `persons-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-  message.success('已导出')
+  try {
+    const resp = await http.post('/api/persons/export', { ...filters }, { responseType: 'blob' })
+    const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `persons-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    message.success('已导出')
+  } catch (error: any) {
+    message.error('导出失败：' + (error?.response?.data?.message || '请稍后重试'))
+  }
 }
 </script>
