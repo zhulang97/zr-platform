@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { http } from '../api/http'
+import { http, getStoredToken, setStoredToken } from '../api/http'
 
 type MenuNode = {
   permCode: string
@@ -20,7 +20,7 @@ type MeResponse = {
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    accessToken: '' as string,
+    accessToken: getStoredToken() as string,
     loaded: false,
     me: null as MeResponse | null
   }),
@@ -28,12 +28,14 @@ export const useAuthStore = defineStore('auth', {
     async login(username: string, password: string) {
       const resp = await http.post('/api/auth/login', { username, password })
       this.accessToken = resp.data.data.accessToken
+      setStoredToken(this.accessToken)
       this.loaded = false
       await this.loadMe()
     },
     async refresh() {
       const resp = await http.post('/api/auth/refresh')
       this.accessToken = resp.data.data.accessToken
+      setStoredToken(this.accessToken)
     },
     async loadMe() {
       const resp = await http.get('/api/auth/me')
@@ -41,13 +43,17 @@ export const useAuthStore = defineStore('auth', {
       this.loaded = true
     },
     async logout() {
-      await http.post('/api/auth/logout')
+      try {
+        await http.post('/api/auth/logout')
+      } catch {
+      }
       this.clear()
     },
     clear() {
       this.accessToken = ''
       this.loaded = false
       this.me = null
+      setStoredToken('')
     },
     hasPerm(code: string) {
       return !!this.me?.permissions?.includes(code)

@@ -29,7 +29,7 @@ public interface PersonDetailMapper {
       left join t_dict lvl on lvl.dict_type = 'disability_level' and lvl.dict_code = dc.level_code and lvl.status = 1
       left join t_dict cs on cs.dict_type = 'card_status' and cs.dict_code = dc.status and cs.status = 1
       where p.person_id = #{personId}
-        <if test="districtIds != null and districtIds.size gt 0">
+        <if test="districtIds != null and districtIds.size &gt; 0">
           and p.district_id in
           <foreach collection='districtIds' item='d' open='(' separator=',' close=')'>
             #{d}
@@ -61,7 +61,7 @@ public interface PersonDetailMapper {
       left join t_pension_benefit pb on pb.person_id = p.person_id
       left join t_blind_card bc on bc.person_id = p.person_id
       where p.person_id = #{personId}
-        <if test="districtIds != null and districtIds.size gt 0">
+        <if test="districtIds != null and districtIds.size &gt; 0">
           and p.district_id in
           <foreach collection='districtIds' item='d' open='(' separator=',' close=')'>
             #{d}
@@ -78,7 +78,7 @@ public interface PersonDetailMapper {
       join t_person p on p.person_id = a.person_id
       left join t_dict at on at.dict_type = 'anomaly_type' and at.dict_code = a.anomaly_type and at.status = 1
       where a.person_id = #{personId}
-        <if test="districtIds != null and districtIds.size gt 0">
+        <if test="districtIds != null and districtIds.size &gt; 0">
           and p.district_id in
           <foreach collection='districtIds' item='d' open='(' separator=',' close=')'>
             #{d}

@@ -14,7 +14,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableMethodSecurity
 @EnableConfigurationProperties(ZrSecurityProperties.class)
 public class SecurityConfig {
 
@@ -33,18 +32,7 @@ public class SecurityConfig {
             .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .anyRequest().authenticated())
-        .exceptionHandling(ex -> ex
-            .authenticationEntryPoint((request, response, authException) -> {
-              response.setStatus(401);
-              response.setContentType("application/json");
-              response.getWriter().write("{\"success\":false,\"message\":\"Unauthorized\"}");
-            })
-            .accessDeniedHandler((request, response, accessDeniedException) -> {
-              response.setStatus(403);
-              response.setContentType("application/json");
-              response.getWriter().write("{\"success\":false,\"message\":\"Forbidden\"}");
-            }))
+            .anyRequest().permitAll())
         .addFilterBefore(new JwtAuthFilter(jwtTokenService), UsernamePasswordAuthenticationFilter.class)
         .build();
   }

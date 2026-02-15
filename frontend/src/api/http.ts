@@ -1,6 +1,28 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 
+// Token 持久化存储
+const TOKEN_KEY = 'zr_token'
+
+const getStoredToken = () => {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+const setStoredToken = (token: string) => {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token)
+    } else {
+      localStorage.removeItem(TOKEN_KEY)
+    }
+  } catch {
+  }
+}
+
 export const http = axios.create({
   baseURL: '/',
   withCredentials: true
@@ -8,6 +30,9 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const auth = useAuthStore()
+  if (!auth.accessToken) {
+    auth.accessToken = getStoredToken()
+  }
   if (auth.accessToken) {
     config.headers = config.headers ?? {}
     config.headers.Authorization = `Bearer ${auth.accessToken}`
@@ -32,3 +57,5 @@ http.interceptors.response.use(
     throw err
   }
 )
+
+export { getStoredToken, setStoredToken }
