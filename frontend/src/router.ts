@@ -39,12 +39,25 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.path === '/login') return true
+  
   if (!auth.accessToken) {
     return { path: '/login' }
   }
+  
   if (!auth.loaded) {
-    await auth.loadMe()
+    try {
+      await auth.loadMe()
+    } catch {
+      auth.clear()
+      return { path: '/login' }
+    }
   }
+  
+  if (!auth.me) {
+    auth.clear()
+    return { path: '/login' }
+  }
+  
   const perm = (to.meta?.perm as string | undefined)
   if (perm && !auth.hasPerm(perm)) {
     return { path: '/home' }

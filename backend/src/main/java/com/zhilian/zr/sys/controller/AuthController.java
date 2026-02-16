@@ -40,6 +40,9 @@ public class AuthController {
 
   @GetMapping("/me")
   public ApiResponse<AuthDtos.MeResponse> me(Authentication authentication) {
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return ApiResponse.fail("未登录");
+    }
     ZrPrincipal principal = (ZrPrincipal) authentication.getPrincipal();
     return ApiResponse.ok(authService.me(principal.userId()));
   }

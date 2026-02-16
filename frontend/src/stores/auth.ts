@@ -38,9 +38,17 @@ export const useAuthStore = defineStore('auth', {
       setStoredToken(this.accessToken)
     },
     async loadMe() {
-      const resp = await http.get('/api/auth/me')
-      this.me = resp.data.data
-      this.loaded = true
+      try {
+        const resp = await http.get('/api/auth/me')
+        if (resp.data?.success && resp.data?.data) {
+          this.me = resp.data.data
+          this.loaded = true
+        } else {
+          this.clear()
+        }
+      } catch {
+        this.clear()
+      }
     },
     async logout() {
       try {
