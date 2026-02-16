@@ -46,8 +46,9 @@ public class ImportServiceImpl implements ImportService {
     long batchId = IdGenerator.nextId();
     ImportBatchEntity batch = new ImportBatchEntity();
     batch.setBatchId(batchId);
-    batch.setImportType(type);
+    batch.setModuleCode(type);
     batch.setFileName(file.getOriginalFilename());
+    batch.setImportStrategy("ID_CARD_MERGE");
     batch.setStatus("UPLOADED");
     batch.setCreatedBy(1L); // TODO: get current user
     batch.setCreatedAt(Instant.now());
@@ -65,8 +66,9 @@ public class ImportServiceImpl implements ImportService {
           row.setRowId(IdGenerator.nextId());
           row.setBatchId(batchId);
           row.setRowNo(currentRow);
-          row.setDataJson(data.toString());
+          row.setRawData(data.toString());
           row.setValidateStatus("PENDING");
+          row.setCreatedAt(Instant.now());
           rows.add(row);
 
           if (rows.size() >= 100) {
@@ -106,7 +108,7 @@ public class ImportServiceImpl implements ImportService {
 
     for (ImportRowEntity row : rows) {
       // Basic validation: check if idNo is present
-      if (row.getDataJson() == null || !row.getDataJson().contains("idNo")) {
+      if (row.getRawData() == null || !row.getRawData().contains("idNo")) {
         errors++;
         errorMsgs.add("Row " + row.getRowNo() + ": missing idNo");
         row.setValidateStatus("ERROR");

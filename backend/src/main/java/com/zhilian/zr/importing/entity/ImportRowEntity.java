@@ -2,6 +2,7 @@ package com.zhilian.zr.importing.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.time.Instant;
 
 @TableName("t_import_row")
 public class ImportRowEntity {
@@ -9,9 +10,13 @@ public class ImportRowEntity {
     private Long rowId;
     private Long batchId;
     private Integer rowNo;
-    private String dataJson;
+    private String rawData;
+    private String parsedData;
+    private String mappedData;
+    private String idCardValue;
     private String validateStatus;
     private String errorMsg;
+    private Instant createdAt;
 
     public Long getRowId() {
         return rowId;
@@ -37,12 +42,36 @@ public class ImportRowEntity {
         this.rowNo = rowNo;
     }
 
-    public String getDataJson() {
-        return dataJson;
+    public String getRawData() {
+        return rawData;
     }
 
-    public void setDataJson(String dataJson) {
-        this.dataJson = dataJson;
+    public void setRawData(String rawData) {
+        this.rawData = rawData;
+    }
+
+    public String getParsedData() {
+        return parsedData;
+    }
+
+    public void setParsedData(String parsedData) {
+        this.parsedData = parsedData;
+    }
+
+    public String getMappedData() {
+        return mappedData;
+    }
+
+    public void setMappedData(String mappedData) {
+        this.mappedData = mappedData;
+    }
+
+    public String getIdCardValue() {
+        return idCardValue;
+    }
+
+    public void setIdCardValue(String idCardValue) {
+        this.idCardValue = idCardValue;
     }
 
     public String getValidateStatus() {
@@ -59,5 +88,13 @@ public class ImportRowEntity {
 
     public void setErrorMsg(String errorMsg) {
         this.errorMsg = errorMsg;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

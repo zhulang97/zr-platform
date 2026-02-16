@@ -31,7 +31,7 @@ public class ImportController {
   @PostMapping("/upload")
   @PreAuthorize("hasAuthority('import:upload')")
   public ApiResponse<Map<String, Object>> upload(
-      @RequestParam("type") String type,
+      @RequestParam(value = "type", required = false) String type,
       @RequestParam("file") MultipartFile file,
       @RequestParam(value = "note", required = false) String note) {
     long batchId = importService.upload(type, file, note);

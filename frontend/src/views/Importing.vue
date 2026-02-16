@@ -1,195 +1,197 @@
 <template>
-  <a-card title="数据导入与治理">
-    <a-space direction="vertical" style="width: 100%;" :size="16">
-      <a-card size="small" title="导入操作">
-        <a-space>
-          <a-select v-model:value="importType" style="width: 200px;" :options="importTypeOptions" />
-          <a-button @click="downloadTemplate" :loading="templateLoading">下载模板</a-button>
-          <a-upload
-            :customRequest="handleUpload"
-            :showUploadList="false"
-            accept=".xlsx,.xls,.csv"
-          >
-            <a-button type="primary" :loading="uploading">上传文件</a-button>
-          </a-upload>
-        </a-space>
-      </a-card>
+  <div class="import-page">
+    <a-card :bordered="false" class="main-card">
+      <template #title>
+        <div class="card-header">
+          <span class="title">数据导入治理</span>
+          <a-space>
+            <a-button type="link" @click="router.push('/import/config')">
+              <SettingOutlined />
+              模块配置
+            </a-button>
+            <a-button type="link" @click="showHistory ? backToImport() : (showHistory = !showHistory)" v-if="!viewingDetail">
+              <HistoryOutlined />
+              {{ showHistory ? '返回导入' : '历史记录' }}
+            </a-button>
+          </a-space>
+        </div>
+      </template>
 
-      <a-card size="small" title="导入批次" v-if="batches.length > 0">
-        <a-table :dataSource="batches" :columns="batchColumns" :pagination="false" rowKey="batchId">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'action'">
-              <a-space>
-                <a-button size="small" @click="validateBatch(record.batchId)">校验</a-button>
-                <a-button 
-                  size="small" 
-                  type="primary" 
-                  @click="showCommitModal(record.batchId)"
-                  :disabled="record.status !== 'VALIDATED'"
-                >
-                  提交
-                </a-button>
-              </a-space>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
-
-      <a-card size="small" title="校验结果" v-if="validationResult">
-        <a-alert
-          :type="validationResult.status === 'VALID' ? 'success' : 'error'"
-          :message="`总计: ${validationResult.total} 条, 错误: ${validationResult.errors} 条`"
+      <!-- 历史记录详情 -->
+      <template v-if="viewingDetail">
+        <HistoryDetail 
+          :batch-id="selectedBatchId" 
+          :on-back="backFromDetail" 
         />
-        <a-list
-          v-if="validationResult.errorMessages?.length > 0"
-          size="small"
-          :dataSource="validationResult.errorMessages"
-          style="margin-top: 12px; maxHeight: 200px; overflow: auto;"
-        >
-          <template #renderItem="{ item }">
-            <a-list-item>
-              <a-typography-text type="danger">{{ item }}</a-typography-text>
-            </a-list-item>
-          </template>
-        </a-list>
-      </a-card>
-    </a-space>
+      </template>
 
-    <a-modal v-model:open="commitModalOpen" title="提交导入" @ok="commitBatch">
-      <a-space direction="vertical" style="width: 100%;">
-        <a-radio-group v-model:value="commitStrategy">
-          <a-radio value="MARK_ERROR">标记错误并继续</a-radio>
-          <a-radio value="SKIP">跳过错误</a-radio>
-          <a-radio value="ABORT">遇到错误中止</a-radio>
-        </a-radio-group>
-      </a-space>
-    </a-modal>
-  </a-card>
+      <!-- 历史记录列表 -->
+      <template v-else-if="showHistory">
+        <HistoryPanel @view="viewBatch" @retry="retryBatch" />
+      </template>
+
+      <!-- 导入流程 -->
+      <template v-else>
+        <!-- 步骤条 -->
+        <div class="steps-container">
+          <a-steps :current="currentStep" size="small">
+            <a-step title="选择模块" />
+            <a-step title="上传文件" />
+            <a-step title="字段映射" />
+            <a-step title="预览确认" />
+            <a-step title="执行导入" />
+          </a-steps>
+        </div>
+
+        <!-- 步骤内容 -->
+        <div class="step-content">
+          <!-- 步骤1: 选择模块 -->
+          <Step1SelectModule 
+            v-if="currentStep === 0"
+            v-model:selectedModules="selectedModules"
+            @next="goNext"
+          />
+
+          <!-- 步骤2: 上传文件 -->
+          <Step2UploadFile
+            v-if="currentStep === 1"
+            :modules="selectedModules"
+            v-model:files="uploadedFiles"
+            v-model:strategy="importStrategy"
+            @prev="goPrev"
+            @next="goNext"
+          />
+
+          <!-- 步骤3: 字段映射 -->
+          <Step3FieldMapping
+            v-if="currentStep === 2"
+            :batch-id="currentBatchId"
+            :module="currentModule"
+            @prev="goPrev"
+            @next="goNext"
+          />
+
+          <!-- 步骤4: 预览确认 -->
+          <Step4Preview
+            v-if="currentStep === 3"
+            :batch-id="currentBatchId"
+            :module="currentModule"
+            @prev="goPrev"
+            @next="goNext"
+          />
+
+          <!-- 步骤5: 执行导入 -->
+          <Step5Execute
+            v-if="currentStep === 4"
+            :batch-id="currentBatchId"
+            :module="currentModule"
+            :strategy="importStrategy"
+            @done="onImportDone"
+          />
+        </div>
+      </template>
+    </a-card>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import type { UploadRequestOption } from 'ant-design-vue/es/upload/interface'
-import { http } from '../api/http'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { HistoryOutlined, SettingOutlined } from '@ant-design/icons-vue'
+import Step1SelectModule from './import/Step1SelectModule.vue'
+import Step2UploadFile from './import/Step2UploadFile.vue'
+import Step3FieldMapping from './import/Step3FieldMapping.vue'
+import Step4Preview from './import/Step4Preview.vue'
+import Step5Execute from './import/Step5Execute.vue'
+import HistoryPanel from './import/HistoryPanel.vue'
+import HistoryDetail from './import/HistoryDetail.vue'
 
-const importType = ref('person')
-const templateLoading = ref(false)
-const uploading = ref(false)
-const batches = ref<any[]>([])
-const validationResult = ref<any>(null)
-const commitModalOpen = ref(false)
-const commitBatchId = ref<number | null>(null)
-const commitStrategy = ref('MARK_ERROR')
+const router = useRouter()
+const currentStep = ref(0)
+const showHistory = ref(false)
+const viewingDetail = ref(false)
+const selectedModules = ref<string[]>([])
+const uploadedFiles = ref<any[]>([])
+const importStrategy = ref('ID_CARD_MERGE')
+const currentBatchId = ref<number | null>(null)
+const currentModule = ref<string>('')
+const selectedBatchId = ref<number>(0)
 
-const importTypeOptions = [
-  { label: '人员信息', value: 'person' },
-  { label: '残疾证信息', value: 'disability_card' },
-  { label: '补贴信息', value: 'benefit' }
-]
-
-const batchColumns = [
-  { title: '批次ID', dataIndex: 'batchId' },
-  { title: '类型', dataIndex: 'type' },
-  { title: '文件名', dataIndex: 'fileName' },
-  { title: '状态', dataIndex: 'status' },
-  { title: '上传时间', dataIndex: 'createdAt' },
-  { title: '操作', key: 'action' }
-]
-
-async function downloadTemplate() {
-  templateLoading.value = true
-  try {
-    const resp = await http.get(`/api/import/templates/${importType.value}`)
-    const { filename, content } = resp.data.data
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-    message.success('模板已下载')
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? '下载失败')
-  } finally {
-    templateLoading.value = false
+const goNext = (data?: any) => {
+  if (currentStep.value === 1 && data) {
+    currentBatchId.value = data.batchId
+    currentModule.value = data.moduleCode
   }
+  currentStep.value++
 }
 
-async function handleUpload(options: UploadRequestOption) {
-  const { file, onSuccess, onError } = options
-  uploading.value = true
-  
-  const formData = new FormData()
-  formData.append('type', importType.value)
-  formData.append('file', file as Blob)
-  
-  try {
-    const resp = await http.post('/api/import/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    const { batchId } = resp.data.data
-    message.success(`上传成功，批次ID: ${batchId}`)
-    batches.value.unshift({
-      batchId,
-      type: importType.value,
-      fileName: (file as File).name,
-      status: 'UPLOADED',
-      createdAt: new Date().toLocaleString()
-    })
-    onSuccess?.(resp.data)
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? '上传失败')
-    onError?.(e)
-  } finally {
-    uploading.value = false
-  }
+const goPrev = () => {
+  currentStep.value--
 }
 
-async function validateBatch(batchId: number) {
-  try {
-    const resp = await http.get(`/api/import/${batchId}/validate`)
-    validationResult.value = resp.data.data
-    
-    const batch = batches.value.find(b => b.batchId === batchId)
-    if (batch) {
-      batch.status = resp.data.data.status === 'VALID' ? 'VALIDATED' : 'INVALID'
-    }
-    
-    message.success('校验完成')
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? '校验失败')
-  }
+const onImportDone = () => {
+  showHistory.value = true
 }
 
-function showCommitModal(batchId: number) {
-  commitBatchId.value = batchId
-  commitModalOpen.value = true
+const viewBatch = (batch: any) => {
+  selectedBatchId.value = batch.batchId
+  viewingDetail.value = true
 }
 
-async function commitBatch() {
-  if (!commitBatchId.value) return
-  
-  try {
-    const resp = await http.post(`/api/import/${commitBatchId.value}/commit`, {
-      strategy: commitStrategy.value
-    })
-    const result = resp.data.data
-    message.success(`提交完成: 成功 ${result.success} 条, 失败 ${result.failed} 条`)
-    
-    const batch = batches.value.find(b => b.batchId === commitBatchId.value)
-    if (batch) {
-      batch.status = 'COMMITTED'
-    }
-    
-    commitModalOpen.value = false
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? '提交失败')
-  }
+const retryBatch = (batch: any) => {
+  currentModule.value = batch.moduleCode
+  currentBatchId.value = batch.batchId
+  showHistory.value = false
+  currentStep.value = 2
 }
 
-onMounted(() => {
-  // 加载历史批次
-})
+const backFromDetail = () => {
+  viewingDetail.value = false
+  selectedBatchId.value = 0
+}
+
+const backToImport = () => {
+  showHistory.value = false
+  currentStep.value = 0
+  currentBatchId.value = null
+  currentModule.value = ''
+  selectedModules.value = []
+  uploadedFiles.value = []
+}
 </script>
+
+<style scoped>
+.import-page {
+  padding: 20px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+.main-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header .title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.steps-container {
+  padding: 20px 40px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.step-content {
+  min-height: 400px;
+}
+</style>

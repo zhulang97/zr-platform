@@ -1,8 +1,13 @@
 <template>
-  <div class="ai-assistant-container">
+  <div class="ai-assistant-container" :style="containerStyle">
     <!-- 悬浮按钮 -->
     <Transition name="fab-bounce">
-      <div v-if="!isOpen" class="fab-button" @click="toggleOpen">
+      <div 
+        v-if="!isOpen" 
+        class="fab-button" 
+        @mousedown="startDrag"
+        @click="handleClick"
+      >
         <div class="fab-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.8"/>
@@ -134,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { http } from '../../api/http'
 import { useAIController, AIResponse } from '../../composables/useAIController'
@@ -148,6 +153,19 @@ const fontSize = ref(14)
 const messagesContainer = ref<HTMLElement | null>(null)
 const route = useRoute()
 const { handleAIResponse } = useAIController()
+
+// 拖拽相关
+const position = ref({ x: 24, y: window.innerHeight - 88 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const hasDragged = ref(false)
+
+const containerStyle = computed(() => ({
+  right: `${position.value.x}px`,
+  bottom: `${position.value.y}px`,
+  left: 'auto',
+  top: 'auto'
+}))
 
 const messages = ref<Msg[]>([
   { 
@@ -171,6 +189,46 @@ function zoomIn() {
 
 function zoomOut() {
   if (fontSize.value > 10) fontSize.value -= 2
+}
+
+function startDrag(e: MouseEvent) {
+  isDragging.value = true
+  hasDragged.value = false
+  dragStart.value = {
+    x: e.clientX,
+    y: e.clientY
+  }
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+function onDrag(e: MouseEvent) {
+  if (!isDragging.value) return
+  
+  const deltaX = dragStart.value.x - e.clientX
+  const deltaY = dragStart.value.y - e.clientY
+  
+  if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+    hasDragged.value = true
+  }
+  
+  const newX = Math.max(24, Math.min(window.innerWidth - 100, position.value.x + deltaX))
+  const newY = Math.max(100, Math.min(window.innerHeight - 100, position.value.y + deltaY))
+  
+  position.value = { x: newX, y: newY }
+  dragStart.value = { x: e.clientX, y: e.clientY }
+}
+
+function stopDrag() {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+function handleClick() {
+  if (!hasDragged.value) {
+    toggleOpen()
+  }
 }
 
 async function send() {
@@ -226,13 +284,16 @@ function scrollToBottom() {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+})
 </script>
 
 <style scoped>
 .ai-assistant-container {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
   z-index: 9999;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -243,7 +304,7 @@ function scrollToBottom() {
   height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  cursor: pointer;
+  cursor: grab;
   position: relative;
   display: flex;
   align-items: center;
@@ -252,6 +313,11 @@ function scrollToBottom() {
     0 4px 15px rgba(102, 126, 234, 0.4),
     0 0 30px rgba(102, 126, 234, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.fab-button:active {
+  cursor: grabbing;
 }
 
 .fab-button:hover {

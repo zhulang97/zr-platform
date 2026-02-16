@@ -9,6 +9,7 @@ const Person = () => import('./views/Person.vue')
 const Anomaly = () => import('./views/Anomaly.vue')
 const Stats = () => import('./views/Stats.vue')
 const Importing = () => import('./views/Importing.vue')
+const ModuleConfig = () => import('./views/import/ModuleConfig.vue')
 const Sys = () => import('./views/Sys.vue')
 const AIChat = () => import('./views/AIChat.vue')
 const PolicySearch = () => import('./views/PolicySearch.vue')
@@ -28,6 +29,7 @@ export const router = createRouter({
         { path: 'anomaly', component: Anomaly, meta: { perm: 'menu:anomaly:view' } },
         { path: 'stats', component: Stats, meta: { perm: 'menu:stats:view' } },
         { path: 'import', component: Importing, meta: { perm: 'menu:import:view' } },
+        { path: 'import/config', component: ModuleConfig, meta: { perm: 'menu:import:view' } },
         { path: 'ai', component: AIChat, meta: { perm: 'menu:ai:view' } },
         { path: 'policy', component: PolicySearch, meta: { perm: 'menu:policy:view' } },
         { path: 'sys/:tab?', component: Sys, meta: { perm: 'menu:sys:view' } }
