@@ -25,6 +25,12 @@ public class GeoCodingService {
     @Value("${amap.securityConfig:}")
     private String securityConfig;
 
+    @Value("${amap.webKey:}")
+    private String webKey;
+
+    @Value("${amap.enabled:true}")
+    private boolean enabled;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String GEOCODE_URL = "https://restapi.amap.com/v3/geocode/geo";
@@ -38,27 +44,47 @@ public class GeoCodingService {
      * @return GeoResult 包含经纬度的结果
      */
     public GeoResult geocode(String address, String city) {
+        if (!enabled) {
+            log.debug("地理编码服务已禁用");
+            return GeoResult.fail("地理编码服务未启用");
+        }
+
+        // 后端使用 webKey，优先使用 webKey，如果没有配置则回退到 key
+        String apiKey = (webKey != null && !webKey.trim().isEmpty()) ? webKey : amapKey;
+        // 是否使用webKey（Web服务Key不需要签名）
+        boolean usingWebKey = (webKey != null && !webKey.trim().isEmpty());
+        
+        log.info("Geocoding using webKey={}, apiKey={}", usingWebKey, apiKey != null ? apiKey.substring(0, Math.min(10, apiKey.length())) + "..." : "null");
+        
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            log.warn("高德地图API Key未配置，跳过地理编码");
+            return GeoResult.fail("API Key未配置");
+        }
+
         if (address == null || address.trim().isEmpty()) {
             return GeoResult.fail("地址不能为空");
         }
 
         try {
-            String encodedAddress = URLEncoder.encode(address, StandardCharsets.UTF_8);
+//            String encodedAddress = URLEncoder.encode(address, StandardCharsets.UTF_8);
             StringBuilder urlBuilder = new StringBuilder(GEOCODE_URL)
-                    .append("?key=").append(amapKey)
-                    .append("&address=").append(encodedAddress);
+                    .append("?key=").append(apiKey)
+                    .append("&address=").append(address);
 
             if (city != null && !city.isEmpty()) {
-                urlBuilder.append("&city=").append(URLEncoder.encode(city, StandardCharsets.UTF_8));
+                urlBuilder.append("&city=").append(city);
             }
 
-            // 如果配置了安全密钥，添加签名
-            if (securityConfig != null && !securityConfig.isEmpty()) {
+            // 只有非Web服务Key且配置了安全密钥时，才添加签名
+            if (!usingWebKey && securityConfig != null && !securityConfig.isEmpty()) {
                 String sign = generateSign(urlBuilder.toString());
                 urlBuilder.append("&sig=").append(sign);
             }
 
-            ResponseEntity<String> response = restTemplate.getForEntity(urlBuilder.toString(), String.class);
+            String requestUrl = urlBuilder.toString();
+            log.debug("Geocoding request URL: {}", requestUrl);
+            
+            ResponseEntity<String> response = restTemplate.getForEntity(requestUrl, String.class);
             String body = response.getBody();
 
             JSONObject json = JSON.parseObject(body);
@@ -66,7 +92,7 @@ public class GeoCodingService {
 
             if (!"1".equals(status)) {
                 String info = json.getString("info");
-                log.warn("地理编码失败: {}, 地址: {}", info, address);
+                log.warn("地理编码失败: {}, 地址: {}, 响应: {}", info, address, body);
                 return GeoResult.fail("地理编码失败: " + info);
             }
 
@@ -122,13 +148,19 @@ public class GeoCodingService {
      */
     public ReGeoResult reverseGeocode(BigDecimal longitude, BigDecimal latitude) {
         try {
+            // 后端使用 webKey，优先使用 webKey，如果没有配置则回退到 key
+            String apiKey = (webKey != null && !webKey.trim().isEmpty()) ? webKey : amapKey;
+            // 是否使用webKey（Web服务Key不需要签名）
+            boolean usingWebKey = (webKey != null && !webKey.trim().isEmpty());
+            
             String location = longitude + "," + latitude;
             StringBuilder urlBuilder = new StringBuilder(REGEO_URL)
-                    .append("?key=").append(amapKey)
+                    .append("?key=").append(apiKey)
                     .append("&location=").append(location)
                     .append("&extensions=all");
 
-            if (securityConfig != null && !securityConfig.isEmpty()) {
+            // 只有非Web服务Key且配置了安全密钥时，才添加签名
+            if (!usingWebKey && securityConfig != null && !securityConfig.isEmpty()) {
                 String sign = generateSign(urlBuilder.toString());
                 urlBuilder.append("&sig=").append(sign);
             }

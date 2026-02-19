@@ -30,6 +30,8 @@ public interface ImportModuleService {
     
     List<BatchDTO> getBatches(Long userId, String moduleCode, int page, int size);
     
+    long getBatchesCount(Long userId, String moduleCode);
+    
     BatchDTO getBatchDetail(long batchId);
     
     List<LogDTO> getBatchLogs(long batchId);

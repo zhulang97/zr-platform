@@ -5,6 +5,7 @@ import com.zhilian.zr.ai.service.AiChatService;
 import com.zhilian.zr.ai.service.AnomalyCaseService;
 import com.zhilian.zr.ai.service.VectorSearchService;
 import com.zhilian.zr.common.api.ApiResponse;
+import com.zhilian.zr.person.entity.PersonIndexEntity;
 import com.zhilian.zr.security.CurrentUser;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -59,6 +60,17 @@ public class AiController {
     public ApiResponse<Void> indexPerson(@RequestBody IndexPersonRequest req) {
         vectorSearchService.indexPerson(req.personId(), req.text());
         return ApiResponse.ok(null);
+    }
+
+    public record SearchPersonsRequest(@NotBlank String keyword, Integer limit) {
+    }
+
+    @PostMapping("/search/persons")
+    @PreAuthorize("hasAuthority('ai:search')")
+    public ApiResponse<List<PersonIndexEntity>> searchPersons(@RequestBody SearchPersonsRequest req) {
+        int limit = req.limit() != null && req.limit() > 0 ? req.limit() : 10;
+        List<PersonIndexEntity> results = vectorSearchService.searchPersons(req.keyword(), limit);
+        return ApiResponse.ok(results);
     }
 
     public record CreateCaseRequest(

@@ -158,7 +158,7 @@ const handleStatusOptions = [
 
 const personId = computed(() => {
   const v = route.params.id
-  return v ? Number(v) : 0
+  return v ? String(v) : ''
 })
 
 const personCarSeparated = computed(() => {
@@ -237,17 +237,41 @@ function statusColor(status?: string | null) {
 }
 
 async function load() {
-  if (!personId.value) return
+  const idCard = personId.value
+  if (!idCard || idCard.length < 5) return
+  
   loading.value = true
   try {
-    const [d, b, r] = await Promise.all([
-      http.get(`/api/persons/${personId.value}`),
-      http.get(`/api/persons/${personId.value}/biz`),
-      http.get(`/api/persons/${personId.value}/risks`)
+    const [idx, d, b, r] = await Promise.all([
+      http.get(`/api/persons/by-idcard/${idCard}`).catch(() => ({ data: { data: null } })),
+      http.get(`/api/persons/${idCard}`).catch(() => ({ data: { data: null } })),
+      http.get(`/api/persons/${idCard}/biz`).catch(() => ({ data: { data: null } })),
+      http.get(`/api/persons/${idCard}/risks`).catch(() => ({ data: { data: [] } }))
     ])
-    detail.value = d.data.data
-    biz.value = b.data.data
-    risks.value = r.data.data ?? []
+    
+    const personIndex = idx.data?.data
+    const personDetail = d.data?.data
+    
+    if (personIndex) {
+      detail.value = {
+        nameMasked: personIndex.name ? personIndex.name.substring(0, 1) + '**' : null,
+        idNoMasked: personIndex.idCard ? personIndex.idCard.substring(0, 6) + '********' + personIndex.idCard.substring(14) : null,
+        disabilityCategoryName: personIndex.disabilityCategory,
+        disabilityLevelName: personIndex.disabilityLevel,
+        disabilityCardNo: null,
+        issueDate: null,
+        cardStatusCode: personIndex.locationStatus,
+        cardStatusName: personIndex.locationStatus === 'SUCCESS' ? '正常' : '待定位'
+      }
+      biz.value = b.data?.data || {}
+      risks.value = r.data?.data ?? []
+    } else if (personDetail) {
+      detail.value = personDetail
+      biz.value = b.data?.data || {}
+      risks.value = r.data?.data ?? []
+    } else {
+      message.warning('未找到该人员信息')
+    }
   } catch (e: any) {
     message.error(e?.response?.data?.message ?? '加载失败')
   } finally {

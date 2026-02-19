@@ -6,6 +6,10 @@ spring:
     name: zr-platform-backend
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 management:
   endpoints:
@@ -30,6 +34,11 @@ ai:
     enabled: true
 
 # 高德地图配置
+# key 和 securityConfig 给前端使用
+# webKey 给后端Web服务使用（地理编码等）
+# 获取地址：https://console.amap.com/dev/key/app
 amap:
   key: ${AMAP_KEY:a0e376b4b78219135989c322f81b9ef8}
   securityConfig: ${AMAP_SECURITY_CONFIG:c9cdb1e7314ce353f3573610415fea0b}
+  webKey: ${AMAP_WEB_KEY:}  # 后端专用Key，用于地理编码服务
+  enabled: ${AMAP_ENABLED:true}

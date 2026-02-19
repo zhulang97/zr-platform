@@ -56,7 +56,7 @@ const props = defineProps<{
 const loading = ref(false)
 const policyList = ref<PolicyDocumentVO[]>([])
 const searchText = ref('')
-const selectedId = ref<number | null>(null)
+const selectedId = ref<string | null>(null)
 
 const filteredList = computed(() => {
   if (!searchText.value) return policyList.value

@@ -20,4 +20,5 @@ public class ImportModuleFieldEntity {
     private String defaultValue;
     private String validationRule;
     private Integer sortOrder;
+    private Integer isDisplay;
 }

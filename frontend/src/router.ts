@@ -6,6 +6,8 @@ const Shell = () => import('./views/Shell.vue')
 
 const Query = () => import('./views/Query.vue')
 const Person = () => import('./views/Person.vue')
+const PersonProfile = () => import('./views/PersonProfile.vue')
+const PersonDetail = () => import('./views/PersonDetail.vue')
 const Anomaly = () => import('./views/Anomaly.vue')
 const Stats = () => import('./views/Stats.vue')
 const Importing = () => import('./views/Importing.vue')
@@ -25,7 +27,10 @@ export const router = createRouter({
       children: [
         { path: '', redirect: '/home' },
         { path: 'home', component: Dashboard, meta: { perm: 'menu:home:view' } },
-        { path: 'person/:id?', component: Person, meta: { perm: 'menu:person:view' } },
+        { path: 'data-overview', component: Query },
+        { path: 'person-profile', component: PersonProfile },
+        { path: 'person-profile/:idCard', component: PersonDetail },
+        { path: 'person/:id?', component: Person },
         { path: 'anomaly', component: Anomaly, meta: { perm: 'menu:anomaly:view' } },
         { path: 'stats', component: Stats, meta: { perm: 'menu:stats:view' } },
         { path: 'import', component: Importing, meta: { perm: 'menu:import:view' } },

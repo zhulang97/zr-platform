@@ -3,7 +3,9 @@ package com.zhilian.zr.person.controller;
 import com.zhilian.zr.common.api.ApiResponse;
 import com.zhilian.zr.common.api.PageResponse;
 import com.zhilian.zr.person.dto.PersonDtos;
+import com.zhilian.zr.person.entity.PersonIndexEntity;
 import com.zhilian.zr.person.service.PersonDetailService;
+import com.zhilian.zr.person.service.PersonIndexService;
 import com.zhilian.zr.person.service.PersonService;
 import com.zhilian.zr.audit.service.AuditService;
 import jakarta.validation.Valid;
@@ -23,11 +25,14 @@ public class PersonController {
 
   private final PersonService personService;
   private final PersonDetailService personDetailService;
+  private final PersonIndexService personIndexService;
   private final AuditService auditService;
 
-  public PersonController(PersonService personService, PersonDetailService personDetailService, AuditService auditService) {
+  public PersonController(PersonService personService, PersonDetailService personDetailService, 
+                         PersonIndexService personIndexService, AuditService auditService) {
     this.personService = personService;
     this.personDetailService = personDetailService;
+    this.personIndexService = personIndexService;
     this.auditService = auditService;
   }
 
@@ -66,5 +71,19 @@ public class PersonController {
   @PreAuthorize("hasAuthority('person:read')")
   public ApiResponse<List<Map<String, Object>>> risks(@PathVariable long personId) {
     return ApiResponse.ok(personDetailService.risks(personId));
+  }
+
+  @GetMapping("/by-idcard/{idCard}")
+  @PreAuthorize("hasAuthority('person:read')")
+  public ApiResponse<PersonIndexEntity> getByIdCard(@PathVariable String idCard) {
+    PersonIndexEntity entity = personIndexService.getByIdCard(idCard);
+    return ApiResponse.ok(entity);
+  }
+
+  @GetMapping("/by-idcard/{idCard}/full-detail")
+  @PreAuthorize("hasAuthority('person:read')")
+  public ApiResponse<Map<String, Object>> getFullDetail(@PathVariable String idCard) {
+    Map<String, Object> detail = personIndexService.getFullDetail(idCard);
+    return ApiResponse.ok(detail);
   }
 }

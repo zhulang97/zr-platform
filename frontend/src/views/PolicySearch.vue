@@ -256,7 +256,7 @@ const handleUploadSuccess = async (data: any) => {
   }, 500)
 }
 
-const handleManualAnalyze = async (policyId: number, content?: string) => {
+const handleManualAnalyze = async (policyId: string, content?: string) => {
   showUpload.value = false
   analyzing.value = true
   try {

@@ -6,35 +6,25 @@ import java.util.List;
 @Data
 public class PolicyConditions {
     
-    private String title;
+    public String title;
     
-    // 户籍区县
-    private List<Long> districtIds;
+    public List<Long> districtIds;
     
-    // 残疾类别: LIMB, VISION, HEARING, SPEECH, INTELLECTUAL, MENTAL
-    private List<String> disabilityCategories;
+    public List<String> disabilityCategories;
     
-    // 残疾等级: 1, 2, 3, 4
-    private List<String> disabilityLevels;
+    public List<String> disabilityLevels;
     
-    // 残车补贴
-    private Boolean hasCar;
+    public Boolean hasCar;
     
-    // 医疗补贴
-    private Boolean hasMedicalSubsidy;
+    public Boolean hasMedicalSubsidy;
     
-    // 养老补贴
-    private Boolean hasPensionSubsidy;
+    public Boolean hasPensionSubsidy;
     
-    // 盲人证
-    private Boolean hasBlindCard;
+    public Boolean hasBlindCard;
     
-    // 最小年龄
-    private Integer ageMin;
+    public Integer ageMin;
     
-    // 最大年龄
-    private Integer ageMax;
+    public Integer ageMax;
     
-    // AI解释说明
-    private String explanation;
+    public String explanation;
 }

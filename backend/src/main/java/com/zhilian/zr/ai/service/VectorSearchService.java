@@ -7,18 +7,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.zhilian.zr.person.entity.PersonIndexEntity;
+import com.zhilian.zr.person.mapper.PersonIndexMapper;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.*;
 
+@Slf4j
 @Service
 public class VectorSearchService {
     private static final Logger log = LoggerFactory.getLogger(VectorSearchService.class);
 
     private final DashScopeEmbeddingService embeddingService;
     private final JdbcTemplate jdbcTemplate;
+    private final PersonIndexMapper personIndexMapper;
 
-    public VectorSearchService(DashScopeEmbeddingService embeddingService, JdbcTemplate jdbcTemplate) {
+    public VectorSearchService(DashScopeEmbeddingService embeddingService, JdbcTemplate jdbcTemplate,
+                               PersonIndexMapper personIndexMapper) {
         this.embeddingService = embeddingService;
         this.jdbcTemplate = jdbcTemplate;
+        this.personIndexMapper = personIndexMapper;
     }
 
     public void indexPerson(Long personId, String text) {
@@ -147,5 +155,28 @@ public class VectorSearchService {
 
     public void deleteAnomalyCaseVector(Long caseId) {
         jdbcTemplate.update("delete from t_anomaly_case_vector where case_id = ?", caseId);
+    }
+
+    public List<PersonIndexEntity> searchPersons(String keyword, int limit) {
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        
+        String pattern = "%" + keyword + "%";
+        List<PersonIndexEntity> results = personIndexMapper.selectList(
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PersonIndexEntity>()
+                .like(PersonIndexEntity::getName, keyword)
+                .or()
+                .like(PersonIndexEntity::getIdCard, keyword)
+                .or()
+                .like(PersonIndexEntity::getStreet, keyword)
+                .or()
+                .like(PersonIndexEntity::getCommittee, keyword)
+                .or()
+                .like(PersonIndexEntity::getDisabilityCategory, keyword)
+                .last("limit " + limit)
+        );
+        
+        return results != null ? results : Collections.emptyList();
     }
 }

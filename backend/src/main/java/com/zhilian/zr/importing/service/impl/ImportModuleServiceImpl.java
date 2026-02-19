@@ -16,6 +16,7 @@ import com.zhilian.zr.importing.mapper.ImportRowMapper;
 import com.zhilian.zr.importing.mapper.ImportModuleConfigMapper;
 import com.zhilian.zr.importing.mapper.ImportModuleFieldMapper;
 import com.zhilian.zr.importing.service.ImportModuleService;
+import com.zhilian.zr.person.service.PersonIndexService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,26 +39,49 @@ public class ImportModuleServiceImpl implements ImportModuleService {
     private final ImportModuleConfigMapper configMapper;
     private final ImportModuleFieldMapper fieldMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final PersonIndexService personIndexService;
     private final Map<Long, ImportProgress> progressMap = new ConcurrentHashMap<>();
+    
+    // Cache for module fields to avoid N+1 query problem
+    private volatile Map<String, List<ImportModuleFieldEntity>> fieldsCache = null;
+    private volatile List<ImportModuleConfigEntity> configCache = null;
+    private volatile long cacheTimestamp = 0;
+    private static final long CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
     public ImportModuleServiceImpl(ImportBatchMapper batchMapper, ImportRowMapper rowMapper,
             ImportModuleConfigMapper configMapper, ImportModuleFieldMapper fieldMapper,
-            JdbcTemplate jdbcTemplate) {
+            JdbcTemplate jdbcTemplate, PersonIndexService personIndexService) {
         this.batchMapper = batchMapper;
         this.rowMapper = rowMapper;
         this.configMapper = configMapper;
         this.fieldMapper = fieldMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.personIndexService = personIndexService;
     }
 
     @Override
     public List<ModuleDTO> getAllModules(Long userId) {
-        List<ImportModuleConfigEntity> configs = configMapper.selectAllOrdered();
-        if (!configs.isEmpty()) {
-            return configs.stream()
+        // Check cache validity
+        long now = System.currentTimeMillis();
+        if (configCache == null || fieldsCache == null || (now - cacheTimestamp) > CACHE_TTL_MS) {
+            synchronized (this) {
+                // Double-check after acquiring lock
+                if (configCache == null || fieldsCache == null || (now - cacheTimestamp) > CACHE_TTL_MS) {
+                    configCache = configMapper.selectAllOrdered();
+                    // Batch load all fields at once to avoid N+1 query
+                    List<ImportModuleFieldEntity> allFields = fieldMapper.selectList(null);
+                    fieldsCache = allFields.stream()
+                        .collect(Collectors.groupingBy(f -> f.getModuleCode()));
+                    cacheTimestamp = now;
+                }
+            }
+        }
+        
+        if (!configCache.isEmpty()) {
+            return configCache.stream()
                 .filter(c -> c.getIsActive() != null && c.getIsActive() == 1)
                 .map(c -> {
-                    List<ImportModuleFieldEntity> fields = fieldMapper.selectByModuleCode(c.getModuleCode());
+                    List<ImportModuleFieldEntity> fields = fieldsCache.getOrDefault(c.getModuleCode(), Collections.emptyList());
                     return new ModuleDTO(
                         c.getModuleCode(),
                         c.getModuleName(),
@@ -69,6 +93,7 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                 })
                 .toList();
         }
+        
         return Arrays.stream(ImportModule.values())
             .map(m -> new ModuleDTO(
                 m.getCode(),
@@ -184,11 +209,16 @@ public class ImportModuleServiceImpl implements ImportModuleService {
             // 保存批次记录
             batchMapper.insert(batch);
             
-            // 读取Excel文件
-            EasyExcel.read(file.getInputStream(), new AnalysisEventListener<Map<Integer, String>>() {
+            // 读取Excel/CSV文件
+            String filename = file.getOriginalFilename();
+            System.out.println("DEBUG - Reading file: " + filename);
+            
+            EasyExcel.read(file.getInputStream()).headRowNumber(1).registerReadListener(new AnalysisEventListener<Map<Integer, String>>() {
                 @Override
                 public void invokeHeadMap(Map<Integer, String> headMap, AnalysisContext context) {
+                    System.out.println("DEBUG - Excel headMap: " + headMap);
                     headMap.values().forEach(columns::add);
+                    System.out.println("DEBUG - Columns after headMap: " + columns);
                     for (String col : columns) {
                         String systemField = findMatchingField(col, module);
                         suggestedMappings.add(new FieldMappingDTO(
@@ -206,7 +236,10 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                 public void invoke(Map<Integer, String> data, AnalysisContext context) {
                     totalRowCount[0]++;
                     
+                    System.out.println("DEBUG - Row " + totalRowCount[0] + " data: " + data);
+                    System.out.println("DEBUG - Row " + totalRowCount[0] + " columns size: " + columns.size());
                     String rawJson = toJson(data, columns);
+                    System.out.println("DEBUG - Row " + totalRowCount[0] + " rawJson: " + rawJson);
                     String idCard = extractIdCardFromRaw(data);
                     
                     ImportRowEntity row = new ImportRowEntity();
@@ -594,7 +627,10 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                 
                 if ("OK".equals(status)) {
                     try {
-                        Map<String, String> data = parseJson(row.getRawData());
+                        String rawData = row.getRawData();
+                        Map<String, String> data = parseJson(rawData);
+                        System.out.println("DEBUG - Row " + row.getRowNo() + " rawData: " + rawData);
+                        System.out.println("DEBUG - Row " + row.getRowNo() + " parsed data: " + data);
                         String idCard = row.getIdCardValue();
                         
                         if ("ID_CARD_MERGE".equals(strategy) && idCard != null && checkExists(tableName, idCard)) {
@@ -604,6 +640,23 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                             insertRow(tableName, data, idCard, fieldNameToColumn, validColumns);
                             inserted++;
                         }
+                        
+                        if (idCard != null && !idCard.isEmpty()) {
+                            try {
+                                Map<String, Object> dataMap = new HashMap<>();
+                                dataMap.putAll(data);
+                                dataMap.put("ID_CARD", idCard);
+                                System.out.println("DEBUG upsertPersonIndex - idCard: " + idCard + ", data keys: " + data.keySet());
+                                System.out.println("DEBUG upsertPersonIndex - contactAddress from data: " + data.get("联系地址"));
+                                personIndexService.upsertPersonIndex(idCard, dataMap, moduleCode);
+                            } catch (Exception e) {
+                                System.err.println("Failed to update person index: " + e.getMessage());
+                                e.printStackTrace();
+                            }
+                        } else {
+                            System.out.println("DEBUG - Skipping upsertPersonIndex, idCard is null or empty");
+                        }
+                        
                         success++;
                         progress.incrementSuccess();
                     } catch (Exception e) {
@@ -761,6 +814,7 @@ public class ImportModuleServiceImpl implements ImportModuleService {
     @Override
     public List<BatchDTO> getBatches(Long userId, String moduleCode, int page, int size) {
         List<ImportBatchEntity> batches = batchMapper.selectList(null);
+        Map<String, String> moduleNameMap = getModuleNameMap();
         
         return batches.stream()
             .filter(b -> moduleCode == null || moduleCode.isEmpty() || 
@@ -768,7 +822,7 @@ public class ImportModuleServiceImpl implements ImportModuleService {
             .skip((long) page * size)
             .limit(size)
             .map(b -> {
-                ImportModule m = ImportModule.fromCode(b.getModuleCode());
+                String moduleName = moduleNameMap.getOrDefault(b.getModuleCode(), b.getModuleCode());
                 List<ImportRowEntity> rows = rowMapper.selectByBatchId(b.getBatchId());
                 int success = (int) rows.stream().filter(r -> "OK".equals(r.getValidateStatus())).count();
                 int failed = (int) rows.stream().filter(r -> "ERROR".equals(r.getValidateStatus())).count();
@@ -776,7 +830,7 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                 return new BatchDTO(
                     b.getBatchId(),
                     b.getModuleCode(),
-                    m != null ? m.getName() : b.getModuleCode(),
+                    moduleName,
                     b.getFileName(),
                     b.getStatus(),
                     "ID_CARD_MERGE",
@@ -789,6 +843,19 @@ public class ImportModuleServiceImpl implements ImportModuleService {
                 );
             })
             .toList();
+    }
+
+    private Map<String, String> getModuleNameMap() {
+        Map<String, String> map = new HashMap<>();
+        try {
+            List<ImportModuleConfigEntity> configs = configMapper.selectList(null);
+            for (ImportModuleConfigEntity config : configs) {
+                map.put(config.getModuleCode(), config.getModuleName());
+            }
+        } catch (Exception e) {
+            // fallback to enum
+        }
+        return map;
     }
 
     @Override
@@ -817,6 +884,15 @@ public class ImportModuleServiceImpl implements ImportModuleService {
             formatInstant(batch.getCreatedAt()),
             null
         );
+    }
+
+    @Override
+    public long getBatchesCount(Long userId, String moduleCode) {
+        List<ImportBatchEntity> allBatches = batchMapper.selectList(null);
+        return allBatches.stream()
+            .filter(b -> moduleCode == null || moduleCode.isEmpty() || 
+                        b.getModuleCode().equals(moduleCode))
+            .count();
     }
 
     @Override
@@ -924,15 +1000,29 @@ public class ImportModuleServiceImpl implements ImportModuleService {
         Map<String, String> result = new HashMap<>();
         if (json == null || json.length() < 2) return result;
         
-        json = json.substring(1, json.length() - 1);
-        String[] pairs = json.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-        
-        for (String pair : pairs) {
-            int idx = pair.indexOf(":");
-            if (idx > 0) {
-                String key = pair.substring(0, idx).replace("\"", "").trim();
-                String value = pair.substring(idx + 1).replace("\"", "").trim();
-                result.put(key, value);
+        try {
+            // Use Jackson for proper JSON parsing
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.core.type.TypeReference<HashMap<String, String>> typeRef = 
+                new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, String>>() {};
+            Map<String, String> parsed = mapper.readValue(json, typeRef);
+            result.putAll(parsed);
+        } catch (Exception e) {
+            // Fallback to simple parsing for malformed JSON
+            try {
+                json = json.substring(1, json.length() - 1);
+                String[] pairs = json.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+                
+                for (String pair : pairs) {
+                    int idx = pair.indexOf(":");
+                    if (idx > 0) {
+                        String key = pair.substring(0, idx).replace("\"", "").trim();
+                        String value = pair.substring(idx + 1).replace("\"", "").trim();
+                        result.put(key, value);
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Failed to parse JSON: " + json + ", error: " + ex.getMessage());
             }
         }
         return result;

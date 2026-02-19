@@ -1,13 +1,13 @@
 import { http } from './http'
 
 export interface PolicyUploadResponse {
-  policyId: number
+  policyId: string
   uploadUrl: string
   ossKey: string
 }
 
 export interface PolicyDocument {
-  policyId: number
+  policyId: string
   title: string
   fileName: string
   fileType: string
@@ -42,7 +42,7 @@ export interface ConditionDiff {
 }
 
 export interface PolicyAnalysisResult {
-  analysisId: number
+  analysisId: string
   version: number
   isLatest: boolean
   conditions: PolicyConditions
@@ -59,14 +59,14 @@ export interface PolicyDocumentVO extends PolicyDocument {
 }
 
 export interface PolicyQueryRequest {
-  analysisId: number
+  analysisId: string
   conditions?: PolicyConditions
   pageNo?: number
   pageSize?: number
 }
 
 export interface PolicyQueryResult {
-  policyId: number
+  policyId: string
   policyTitle: string
   version: number
   conditions: PolicyConditions
@@ -75,18 +75,32 @@ export interface PolicyQueryResult {
 }
 
 export const PolicyApi = {
+  // 直接上传文件（通过后端代理）
+  uploadFile(file: File, title?: string) {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (title) {
+      formData.append('title', title)
+    }
+    return http.post<PolicyUploadResponse>('/api/policies/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
   // 获取OSS上传URL
   getUploadUrl(fileName: string, fileType: string) {
     return http.post<PolicyUploadResponse>('/api/policies/upload-url', { fileName, fileType })
   },
 
   // 确认上传完成
-  confirmUpload(policyId: number) {
+  confirmUpload(policyId: string) {
     return http.post(`/api/policies/${policyId}/confirm`)
   },
 
   // 分析政策
-  analyzePolicy(policyId: number, content?: string) {
+  analyzePolicy(policyId: string, content?: string) {
     return http.post<PolicyAnalysisResult>(`/api/policies/${policyId}/analyze`, { content })
   },
 
@@ -101,27 +115,27 @@ export const PolicyApi = {
   },
 
   // 获取政策详情
-  getPolicyDetail(policyId: number) {
+  getPolicyDetail(policyId: string) {
     return http.get<PolicyDocument>(`/api/policies/${policyId}`)
   },
 
   // 获取政策所有版本
-  getPolicyVersions(policyId: number) {
+  getPolicyVersions(policyId: string) {
     return http.get<PolicyAnalysisResult[]>(`/api/policies/${policyId}/versions`)
   },
 
   // 更新政策标题
-  updateTitle(policyId: number, title: string) {
+  updateTitle(policyId: string, title: string) {
     return http.put(`/api/policies/${policyId}/title`, { title })
   },
 
   // 删除政策
-  deletePolicy(policyId: number) {
+  deletePolicy(policyId: string) {
     return http.delete(`/api/policies/${policyId}`)
   },
 
   // 获取PDF预览信息
-  getPdfPreviewInfo(policyId: number) {
+  getPdfPreviewInfo(policyId: string) {
     return http.get<{
       isPdf: boolean
       isConverted: boolean
@@ -132,7 +146,7 @@ export const PolicyApi = {
   },
 
   // 转换PDF为图片
-  convertPdfToImages(policyId: number) {
+  convertPdfToImages(policyId: string) {
     return http.post<string[]>(`/api/policies/${policyId}/convert`)
   }
 }

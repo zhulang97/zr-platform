@@ -11,9 +11,7 @@ import java.util.List;
 @Mapper
 public interface PolicyMapper extends BaseMapper<PolicyDocument> {
     
-    @Select("SELECT p.*, a.version as latest_version, a.explanation as latest_explanation " +
-            "FROM t_policy_document p " +
-            "LEFT JOIN t_policy_analysis a ON p.policy_id = a.policy_id AND a.is_latest = 'Y' " +
+    @Select("SELECT p.* FROM t_policy_document p " +
             "WHERE p.user_id = #{userId} AND p.status = 'ACTIVE' " +
             "ORDER BY p.created_at DESC")
     List<PolicyDocument> selectListWithLatestVersion(@Param("userId") Long userId);

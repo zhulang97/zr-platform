@@ -8,6 +8,7 @@ import com.zhilian.zr.importing.entity.ImportBatchEntity;
 import com.zhilian.zr.importing.entity.ImportRowEntity;
 import com.zhilian.zr.importing.mapper.ImportBatchMapper;
 import com.zhilian.zr.importing.mapper.ImportRowMapper;
+import com.zhilian.zr.importing.service.ImportModuleService;
 import com.zhilian.zr.importing.service.ImportService;
 import com.zhilian.zr.person.mapper.PersonSearchMapper;
 import java.io.IOException;
@@ -26,10 +27,12 @@ public class ImportServiceImpl implements ImportService {
 
   private final ImportBatchMapper batchMapper;
   private final ImportRowMapper rowMapper;
+  private final ImportModuleService importModuleService;
 
-  public ImportServiceImpl(ImportBatchMapper batchMapper, ImportRowMapper rowMapper) {
+  public ImportServiceImpl(ImportBatchMapper batchMapper, ImportRowMapper rowMapper, ImportModuleService importModuleService) {
     this.batchMapper = batchMapper;
     this.rowMapper = rowMapper;
+    this.importModuleService = importModuleService;
   }
 
   @Override
@@ -107,8 +110,13 @@ public class ImportServiceImpl implements ImportService {
     List<String> errorMsgs = new ArrayList<>();
 
     for (ImportRowEntity row : rows) {
-      // Basic validation: check if idNo is present
-      if (row.getRawData() == null || !row.getRawData().contains("idNo")) {
+      // Basic validation: check if idNo or 证件号码 is present
+      boolean hasIdCard = row.getRawData() != null && (
+          row.getRawData().contains("idNo") || 
+          row.getRawData().contains("证件号码") ||
+          row.getRawData().contains("身份证号")
+      );
+      if (!hasIdCard) {
         errors++;
         errorMsgs.add("Row " + row.getRowNo() + ": missing idNo");
         row.setValidateStatus("ERROR");
@@ -135,35 +143,18 @@ public class ImportServiceImpl implements ImportService {
       throw new IllegalArgumentException("Batch not found");
     }
 
-    List<ImportRowEntity> rows = rowMapper.selectByBatchId(batchId);
-    int total = rows.size();
-    int success = 0;
-    int failed = 0;
-
-    for (ImportRowEntity row : rows) {
-      if ("OK".equals(row.getValidateStatus())) {
-        // TODO: actual insert logic
-        success++;
-      } else {
-        if ("MARK_ERROR".equals(strategy)) {
-          failed++;
-        } else if ("SKIP".equals(strategy)) {
-          // just skip
-        } else if ("ABORT".equals(strategy)) {
-          throw new IllegalStateException("Validation errors found, aborting");
-        }
-      }
+    // 调用 ImportModuleService 来执行实际的导入逻辑
+    try {
+      var result = importModuleService.commit(batchId, strategy, null);
+      return Map.of(
+          "batchId", batchId,
+          "strategy", strategy,
+          "total", result.totalRows(),
+          "success", result.successRows(),
+          "failed", result.failedRows()
+      );
+    } catch (Exception e) {
+      throw new RuntimeException("导入失败: " + e.getMessage(), e);
     }
-
-    batch.setStatus("COMMITTED");
-    batchMapper.updateById(batch);
-
-    return Map.of(
-        "batchId", batchId,
-        "strategy", strategy,
-        "total", total,
-        "success", success,
-        "failed", failed
-    );
   }
 }

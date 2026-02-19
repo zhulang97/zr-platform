@@ -155,4 +155,26 @@ public class ImportConfigController {
         
         return ApiResponse.ok(Map.of("modules", moduleCount, "fields", fieldCount));
     }
+
+    @PutMapping("/modules/{moduleCode}/fields/display")
+    @PreAuthorize("hasAuthority('import:config:edit')")
+    public ApiResponse<Void> updateFieldsDisplay(
+            @PathVariable String moduleCode,
+            @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> fields = (List<Map<String, Object>>) body.get("fields");
+        
+        if (fields != null) {
+            for (Map<String, Object> f : fields) {
+                Long id = Long.valueOf(f.get("id").toString());
+                ImportModuleFieldEntity entity = fieldMapper.selectById(id);
+                if (entity != null) {
+                    entity.setIsDisplay(f.get("isDisplay") != null ? Integer.valueOf(f.get("isDisplay").toString()) : 1);
+                    fieldMapper.updateById(entity);
+                }
+            }
+        }
+        
+        return ApiResponse.ok(null);
+    }
 }

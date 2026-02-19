@@ -96,10 +96,12 @@ public class ImportModuleController {
             @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal Long userId) {
         List<BatchDTO> batches = importModuleService.getBatches(userId, module, page, size);
+        long totalElements = importModuleService.getBatchesCount(userId, module);
+        int totalPages = (int) Math.ceil((double) totalElements / size);
         return ApiResponse.ok(Map.of(
                 "content", batches,
-                "totalElements", batches.size(),
-                "totalPages", 1,
+                "totalElements", totalElements,
+                "totalPages", totalPages,
                 "size", size,
                 "number", page
         ));

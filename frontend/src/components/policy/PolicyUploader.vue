@@ -71,7 +71,7 @@ import { PolicyApi, type PolicyUploadResponse } from '../../api/policy'
 
 const emit = defineEmits<{
   (e: 'upload-success', data: PolicyUploadResponse & { file?: File }): void
-  (e: 'analyze', policyId: number, content?: string): void
+  (e: 'analyze', policyId: string, content?: string): void
 }>()
 
 const fileList = ref([])
@@ -108,53 +108,28 @@ const handleUpload = async (options: any) => {
   uploadProgress.value = 0
   
   try {
-    // 1. 获取上传URL
-    const resp = await PolicyApi.getUploadUrl(file.name, file.type)
+    // 直接通过后端上传
+    const resp = await PolicyApi.uploadFile(file)
     const { policyId, uploadUrl, ossKey } = resp.data.data
     
-    // 2. 直传OSS
-    const xhr = new XMLHttpRequest()
+    uploadProgress.value = 100
+    previewUrl.value = uploadUrl
+    uploading.value = false
+    onSuccess({})
     
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        uploadProgress.value = Math.round((e.loaded / e.total) * 100)
-        onProgress({ percent: uploadProgress.value })
-      }
-    }
-    
-    xhr.onload = async () => {
-      if (xhr.status === 200) {
-        // 3. 确认上传完成
-        await PolicyApi.confirmUpload(policyId)
-        
-        previewUrl.value = uploadUrl
-        uploading.value = false
-        onSuccess(xhr.response)
-        
-        message.success('文件上传成功！')
-        emit('upload-success', { 
-          policyId, 
-          uploadUrl, 
-          ossKey, 
-          file 
-        })
-      } else {
-        throw new Error('上传失败')
-      }
-    }
-    
-    xhr.onerror = () => {
-      throw new Error('上传失败')
-    }
-    
-    xhr.open('PUT', uploadUrl, true)
-    xhr.setRequestHeader('Content-Type', file.type)
-    xhr.send(file)
+    message.success('文件上传成功！')
+    emit('upload-success', { 
+      policyId, 
+      uploadUrl, 
+      ossKey, 
+      file 
+    })
     
   } catch (error: any) {
+    console.error('Upload error:', error)
     uploading.value = false
     onError(error)
-    message.error('上传失败：' + (error?.response?.data?.message || '请重试'))
+    message.error('上传失败：' + (error?.response?.data?.message || error?.message || '请重试'))
   }
 }
 

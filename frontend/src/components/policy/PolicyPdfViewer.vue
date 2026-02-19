@@ -118,7 +118,7 @@ import {
 import { PolicyApi } from '../../api/policy'
 
 const props = defineProps<{
-  policyId: number
+  policyId: string
   isPdf: boolean
 }>()
 

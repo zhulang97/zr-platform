@@ -24,7 +24,7 @@
       <a-col :span="12">
         <a-card size="small" title="相似信息">
           <a-empty v-if="similarDocs.length === 0" description="无相似信息" />
-          <a-list v-else size="small" :data-source="similarDocs" style="max-height: 500px; overflow-y: auto;">
+          <a-list v-else size="small" :data-source="similarDocs" style="max-height: 250px; overflow-y: auto;">
             <template #renderItem="{ item }">
               <a-list-item>
                 <a-list-item-meta>
@@ -34,6 +34,26 @@
                   </template>
                   <template #description>
                     相似度: {{ (item.score * 100).toFixed(1) }}%
+                  </template>
+                </a-list-item-meta>
+              </a-list-item>
+            </template>
+          </a-list>
+        </a-card>
+
+        <a-card size="small" title="人员搜索结果" style="margin-top: 16px;">
+          <a-empty v-if="personResults.length === 0" description="无匹配人员" />
+          <a-list v-else size="small" :data-source="personResults" style="max-height: 220px; overflow-y: auto;">
+            <template #renderItem="{ item }">
+              <a-list-item>
+                <a-list-item-meta>
+                  <template #title>
+                    <a>{{ item.name }}</a>
+                    <a-tag style="margin-left: 8px;">{{ item.disabilityCategory }}</a-tag>
+                    <a-tag color="blue">{{ item.disabilityLevel }}级</a-tag>
+                  </template>
+                  <template #description>
+                    {{ item.district }} {{ item.street }} {{ item.committee }}
                   </template>
                 </a-list-item-meta>
               </a-list-item>
@@ -158,8 +178,20 @@ interface AnomalyCase {
   resolvedAt?: string
 }
 
+interface PersonResult {
+  idCard: string
+  name: string
+  gender: string
+  district: string
+  street: string
+  committee: string
+  disabilityCategory: string
+  disabilityLevel: string
+}
+
 const messages = ref<Message[]>([])
 const similarDocs = ref<VectorDoc[]>([])
+const personResults = ref<PersonResult[]>([])
 const cases = ref<AnomalyCase[]>([])
 const loading = ref(false)
 const query = ref('')
@@ -217,29 +249,40 @@ const handleSearch = async () => {
 
   loading.value = true
   try {
-    const res = await fetch('/api/ai/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query.value, limit: 5 })
-    })
-    const data = await res.json()
-
-    if (data.code === 0) {
-      similarDocs.value = data.data || []
-
-      messages.value.push({ role: 'user', content: query.value })
-
-      const chatRes = await fetch('/api/ai/chat', {
+    const [searchRes, personRes] = await Promise.all([
+      fetch('/api/ai/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.value, personId: null })
+        body: JSON.stringify({ query: query.value, limit: 5 })
+      }),
+      fetch('/api/ai/search/persons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: query.value, limit: 10 })
       })
-      const chatData = await chatRes.json()
-      if (chatData.code === 0) {
-        messages.value.push({ role: 'assistant', content: chatData.data })
-      }
-    } else {
-      message.error(data.message || '搜索失败')
+    ])
+
+    const searchData = await searchRes.json()
+    const personData = await personRes.json()
+
+    if (searchData.code === 0) {
+      similarDocs.value = searchData.data || []
+    }
+    
+    if (personData.success) {
+      personResults.value = personData.data || []
+    }
+
+    messages.value.push({ role: 'user', content: query.value })
+
+    const chatRes = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query.value, personId: null })
+    })
+    const chatData = await chatRes.json()
+    if (chatData.code === 0) {
+      messages.value.push({ role: 'assistant', content: chatData.data })
     }
   } catch (e) {
     message.error('搜索失败')

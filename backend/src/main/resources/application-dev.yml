@@ -53,16 +53,27 @@ milvus:
   port: 5243
   database: zy_platform
 
-# 阿里云OSS配置
-aliyun:
-  oss:
-    endpoint: http://oss-cn-shanghai-zpint-d01-a.ops-zpint.lt.cloud.sh.cegn.cn/
-    access-key-id: F8O6R71RTyoc3myw
-    access-key-secret: tpRDicxg0Fw4stHGzRwHB8oXuCBJ0t
-    bucket-name: oss-cu-xc-cnq-kj-ywtg-ai-01
-    policy-expiration: 3600
+# MinIO对象存储配置
+# 配置你的远程MinIO服务器信息
+storage:
+  type: minio
+  endpoint: http://220.196.89.54:49161  # 替换为你的远程MinIO地址
+  access-key: wsupport               # 替换为你的MinIO Access Key
+  secret-key: Justai1033@13               # 替换为你的MinIO Secret Key
+  bucket-name: zr-platform                  # 替换为你的Bucket名称
+  secure: false                             # 如果使用HTTPS则设为true
 
 external:
   call:
     # 外部外呼接口URL https://api.q.52store.com/api/app/reportCall
     url: http://220.196.89.32:4110
+
+# 高德地图配置（请替换为有效的API Key）
+# key 和 securityConfig 给前端使用
+# webKey 给后端Web服务使用（地理编码等）
+# 获取地址：https://console.amap.com/dev/key/app
+amap:
+  key: ${AMAP_KEY:a0e376b4b78219135989c322f81b9ef8}
+  securityConfig: ${AMAP_SECURITY_CONFIG:c9cdb1e7314ce353f3573610415fea0b}
+  webKey: ${AMAP_WEB_KEY:6640d92bf13e62c5ef4421321f7a7cb1}
+  enabled: ${AMAP_ENABLED:true}

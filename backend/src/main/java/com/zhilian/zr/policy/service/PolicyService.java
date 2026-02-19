@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.zhilian.zr.assistant.dto.AssistantDsl;
 import com.zhilian.zr.common.api.PageResponse;
 import com.zhilian.zr.person.dto.PersonDtos;
+import com.zhilian.zr.person.entity.PersonIndexEntity;
+import com.zhilian.zr.person.service.PersonIndexService;
 import com.zhilian.zr.person.service.PersonService;
 import com.zhilian.zr.policy.dto.*;
 import com.zhilian.zr.policy.entity.PolicyAnalysis;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -38,7 +41,54 @@ public class PolicyService {
     private final FileExtractService fileExtractService;
     private final PdfImageService pdfImageService;
     private final PersonService personService;
+    private final PersonIndexService personIndexService;
     private final DataScopeService dataScopeService;
+    
+    /**
+     * 直接上传文件（通过后端代理到OSS）
+     */
+    @Transactional
+    public PolicyUploadResponse uploadFile(Long userId, MultipartFile file, String title) {
+        try {
+            String fileName = file.getOriginalFilename();
+            String fileType = file.getContentType();
+            long fileSize = file.getSize();
+            
+            // 生成OSS Key
+            PolicyUploadResponse response = documentService.generateUploadUrl(userId, fileName, fileType);
+            String ossKey = response.getOssKey();
+            
+            // 读取文件内容到字节数组（避免InputStream重置问题）
+            byte[] fileBytes = file.getBytes();
+            
+            // 上传到OSS
+            documentService.uploadFile(ossKey, fileBytes, fileType);
+            
+            // 创建政策记录
+            PolicyDocument document = new PolicyDocument();
+            document.setUserId(userId);
+            document.setTitle(title != null ? title : fileName);
+            document.setOssKey(ossKey);
+            document.setOssUrl(documentService.getFileUrl(ossKey));
+            document.setFileName(fileName);
+            document.setFileType(fileType);
+            document.setFileSize(fileSize);
+            document.setStatus("ACTIVE");
+            document.setCreatedAt(LocalDateTime.now());
+            document.setUpdatedAt(LocalDateTime.now());
+            
+            policyMapper.insert(document);
+            
+            response.setPolicyId(document.getPolicyId());
+            response.setTitle(document.getTitle());
+            response.setCreatedAt(document.getCreatedAt());
+            
+            return response;
+        } catch (Exception e) {
+            log.error("Failed to upload policy file", e);
+            throw new RuntimeException("上传失败: " + e.getMessage());
+        }
+    }
     
     /**
      * 获取政策上传URL
@@ -51,9 +101,12 @@ public class PolicyService {
         document.setUserId(userId);
         document.setTitle(fileName);
         document.setOssKey(response.getOssKey());
+        document.setOssUrl("");  // 占位，上传确认后会更新
         document.setFileName(fileName);
         document.setFileType(fileType);
         document.setStatus("PENDING");
+        document.setCreatedAt(LocalDateTime.now());
+        document.setUpdatedAt(LocalDateTime.now());
         
         policyMapper.insert(document);
         response.setPolicyId(document.getPolicyId());
@@ -177,64 +230,94 @@ public class PolicyService {
             ? request.getConditions() 
             : JSON.parseObject(analysis.getConditionsJson(), PolicyConditions.class);
         
-        // 构建查询请求
-        AssistantDsl.Filters filters = new AssistantDsl.Filters();
-        filters.setDistrictIds(conditions.getDistrictIds());
-        filters.setDisabilityCategories(conditions.getDisabilityCategories());
-        filters.setDisabilityLevels(conditions.getDisabilityLevels());
-        filters.setHasCar(conditions.getHasCar());
-        filters.setHasMedicalSubsidy(conditions.getHasMedicalSubsidy());
-        filters.setHasPensionSubsidy(conditions.getHasPensionSubsidy());
-        filters.setHasBlindCard(conditions.getHasBlindCard());
+        // 从PersonIndex查询
+        int pageNo = request.getPageNo() != null ? request.getPageNo() : 1;
+        int pageSize = request.getPageSize() != null ? request.getPageSize() : 20;
         
-        // 获取数据范围
-        List<Long> scope = dataScopeService.districtScopeOrNullForAdmin(
-            userId, 
-            CurrentUser.authorities()
-        );
-        List<Long> districtIds = DataScopeService.intersectDistrictIds(
-            filters.getDistrictIds(), 
-            scope
-        );
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.zhilian.zr.person.entity.PersonIndexEntity> page = 
+            personIndexService.search(conditions, pageNo, pageSize);
         
-        // 构建查询请求
-        PersonDtos.PersonSearchRequest searchRequest = new PersonDtos.PersonSearchRequest(
-            filters.getNameLike(),
-            filters.getIdNo(),
-            filters.getDisabilityCardNo(),
-            districtIds,
-            filters.getStreetIds(),
-            filters.getDisabilityCategories(),
-            filters.getDisabilityLevels(),
-            filters.getHasCar(),
-            filters.getHasMedicalSubsidy(),
-            filters.getHasPensionSubsidy(),
-            filters.getHasBlindCard(),
-            null,
-            null,
-            request.getPageNo() != null ? request.getPageNo() : 1,
-            request.getPageSize() != null ? request.getPageSize() : 20
-        );
+        List<PersonIndexEntity> persons = page.getRecords();
+        List<PersonDtos.PersonRow> items = persons.stream().map(p -> {
+            return new PersonDtos.PersonRow(
+                p.getIdCard() != null ? p.getIdCard().hashCode() : 0L,
+                p.getName() != null ? p.getName().substring(0, 1) + "**" : null,
+                p.getIdCard() != null ? p.getIdCard().substring(0, 6) + "********" + p.getIdCard().substring(14) : null,
+                p.getDisabilityCategory(),
+                null,
+                p.getDisabilityLevel(),
+                null,
+                p.getDistrict(),
+                p.getStreet(),
+                null,
+                null,
+                false,
+                false,
+                false,
+                false
+            );
+        }).collect(Collectors.toList());
         
-        // 执行查询
-        PageResponse<PersonDtos.PersonRow> pageResult = personService.search(searchRequest);
-        
-        // 记录查询日志
-        PolicyQueryLog log = new PolicyQueryLog();
-        log.setAnalysisId(request.getAnalysisId());
-        log.setFiltersJson(JSON.toJSONString(conditions));
-        log.setTotalResults(pageResult.items().size());
-        log.setExecutedAt(LocalDateTime.now());
-        // 这里应该插入到日志表
-        
-        // 构建返回结果
         PolicyQueryResult result = new PolicyQueryResult();
         result.setPolicyId(document.getPolicyId());
         result.setPolicyTitle(document.getTitle());
         result.setVersion(analysis.getVersion());
         result.setConditions(conditions);
-        result.setTotal(pageResult.total());
-        result.setItems(pageResult.items());
+        result.setTotal(page.getTotal());
+        result.setItems(items);
+        
+        return result;
+    }
+
+    public PolicyQueryResult queryPersonsFromIndex(PolicyQueryRequest request, Long userId) {
+        PolicyAnalysis analysis = analysisMapper.selectById(request.getAnalysisId());
+        if (analysis == null) {
+            throw new RuntimeException("分析记录不存在");
+        }
+        
+        PolicyDocument document = policyMapper.selectById(analysis.getPolicyId());
+        if (document == null || !document.getUserId().equals(userId)) {
+            throw new RuntimeException("无权限访问此政策");
+        }
+        
+        PolicyConditions conditions = request.getConditions() != null 
+            ? request.getConditions() 
+            : JSON.parseObject(analysis.getConditionsJson(), PolicyConditions.class);
+        
+        int pageNo = request.getPageNo() != null ? request.getPageNo() : 1;
+        int pageSize = request.getPageSize() != null ? request.getPageSize() : 20;
+        
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.zhilian.zr.person.entity.PersonIndexEntity> page = 
+            personIndexService.search(conditions, pageNo, pageSize);
+        
+        List<PersonIndexEntity> persons = page.getRecords();
+        List<PersonDtos.PersonRow> items = persons.stream().map(p -> {
+            return new PersonDtos.PersonRow(
+                p.getIdCard() != null ? p.getIdCard().hashCode() : 0L,
+                p.getName() != null ? p.getName().substring(0, 1) + "**" : null,
+                p.getIdCard() != null ? p.getIdCard().substring(0, 6) + "********" + p.getIdCard().substring(14) : null,
+                p.getDisabilityCategory(),
+                null,
+                p.getDisabilityLevel(),
+                null,
+                p.getDistrict(),
+                p.getStreet(),
+                null,
+                null,
+                false,
+                false,
+                false,
+                false
+            );
+        }).collect(Collectors.toList());
+        
+        PolicyQueryResult result = new PolicyQueryResult();
+        result.setPolicyId(document.getPolicyId());
+        result.setPolicyTitle(document.getTitle());
+        result.setVersion(analysis.getVersion());
+        result.setConditions(conditions);
+        result.setTotal(page.getTotal());
+        result.setItems(items);
         
         return result;
     }
@@ -258,10 +341,14 @@ public class PolicyService {
             vo.setUpdatedAt(doc.getUpdatedAt());
             
             // 设置最新版本信息
-            PolicyAnalysis latestAnalysis = analysisMapper.selectLatestByPolicyId(doc.getPolicyId());
-            if (latestAnalysis != null) {
-                vo.setLatestVersion(latestAnalysis.getVersion());
-                vo.setLatestExplanation(latestAnalysis.getExplanation());
+            try {
+                PolicyAnalysis latestAnalysis = analysisMapper.selectLatestByPolicyId(doc.getPolicyId());
+                if (latestAnalysis != null) {
+                    vo.setLatestVersion(latestAnalysis.getVersion());
+                    vo.setLatestExplanation(latestAnalysis.getExplanation());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to get latest analysis for policy: {}", doc.getPolicyId(), e);
             }
             
             return vo;

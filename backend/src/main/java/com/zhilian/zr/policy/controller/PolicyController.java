@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,19 @@ import java.util.Map;
 public class PolicyController {
     
     private final PolicyService policyService;
+    
+    /**
+     * 直接上传文件（通过后端代理到OSS）
+     */
+    @PostMapping("/upload")
+    @PreAuthorize("hasAuthority('policy:create')")
+    public ApiResponse<PolicyUploadResponse> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "title", required = false) String title) {
+        Long userId = CurrentUser.userId();
+        PolicyUploadResponse response = policyService.uploadFile(userId, file, title);
+        return ApiResponse.ok(response);
+    }
     
     /**
      * 获取OSS上传URL

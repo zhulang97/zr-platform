@@ -31,11 +31,19 @@
       >
         <a-menu-item key="/home">
           <template #icon><HomeOutlined /></template>
-          <span>统一查询</span>
+          <span>首页</span>
         </a-menu-item>
-        <a-menu-item key="/person">
+        <a-menu-item key="/data-overview">
+          <template #icon><DatabaseOutlined /></template>
+          <span>数据总览</span>
+        </a-menu-item>
+        <a-menu-item key="/person-profile">
           <template #icon><UserOutlined /></template>
           <span>一人一档</span>
+        </a-menu-item>
+        <a-menu-item key="/person">
+          <template #icon><IdcardOutlined /></template>
+          <span>一人一档(旧)</span>
         </a-menu-item>
         <a-menu-item key="/anomaly" v-perm="'menu:anomaly:view'">
           <template #icon><WarningOutlined /></template>
@@ -146,7 +154,9 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  DownOutlined
+  DownOutlined,
+  DatabaseOutlined,
+  IdcardOutlined
 } from '@ant-design/icons-vue'
 
 const auth = useAuthStore()
@@ -156,6 +166,7 @@ const collapsed = ref(false)
 const selectedKey = computed(() => {
   const p = route.path
   if (p.startsWith('/person')) return '/person'
+  if (p.startsWith('/data-overview')) return '/data-overview'
   return p
 })
 

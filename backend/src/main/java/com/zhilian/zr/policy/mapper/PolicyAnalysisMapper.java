@@ -11,9 +11,9 @@ import java.util.List;
 @Mapper
 public interface PolicyAnalysisMapper extends BaseMapper<PolicyAnalysis> {
     
-    @Select("SELECT * FROM t_policy_analysis WHERE policy_id = #{policyId} ORDER BY version DESC")
+    @Select("SELECT analysis_id, policy_id, version, TRIM(is_latest) as is_latest, conditions_json, explanation, analyzed_segments, total_segments, created_at FROM t_policy_analysis WHERE policy_id = #{policyId} ORDER BY version DESC")
     List<PolicyAnalysis> selectByPolicyId(@Param("policyId") Long policyId);
     
-    @Select("SELECT * FROM t_policy_analysis WHERE policy_id = #{policyId} AND is_latest = 'Y'")
+    @Select("SELECT analysis_id, policy_id, version, TRIM(is_latest) as is_latest, conditions_json, explanation, analyzed_segments, total_segments, created_at FROM t_policy_analysis WHERE policy_id = #{policyId} AND TRIM(is_latest) = 'Y'")
     PolicyAnalysis selectLatestByPolicyId(@Param("policyId") Long policyId);
 }

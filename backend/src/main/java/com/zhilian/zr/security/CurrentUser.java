@@ -12,7 +12,7 @@ public final class CurrentUser {
   public static long userId() {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || !(auth.getPrincipal() instanceof ZrPrincipal p)) {
-      throw new IllegalStateException("Missing authentication");
+      throw new SecurityException("请先登录");
     }
     return p.userId();
   }
